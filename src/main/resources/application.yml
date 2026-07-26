@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: c2guard
+
+# 한글 응답이 깨지지 않도록 명시
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
