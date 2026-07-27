@@ -42,4 +42,4 @@ curl -X POST http://localhost:8080/api/incident-check \
 1. Python 버전(`rule_engine_draft.py`)이랑 같은 입력값 넣어서 결과 똑같이 나오는지 대조 테스트
 2. 요청 값 검증(400 처리) 추가
 3. RDS 연동 — 지금은 CSV를 메모리에 올리는 방식인데, `서버와_배포.pdf`에서 배운 대로 나중에 JPA + RDS로 교체
-4. 프론트(이준희)랑 API 명세서 맞춰보기
+4. 프론트(준희님)랑 API 명세서 맞춰보기
