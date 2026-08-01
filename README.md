@@ -37,6 +37,17 @@ curl -X POST http://localhost:8080/api/incident-check \
 - 유별 데이터가 없어서 대부분 `UNCLASSIFIED` 반환하는 게 정상
 - 최현준 CAMEO 데이터 연동되면 `CompatibilityService`에 CAMEO 조회 우선순위 로직 추가 예정 (별표19는 fallback으로)
 
+## BFF v1 계약
+
+FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 기준으로 합니다.
+
+- `contracts/dashboard-bff-v1.openapi.json`
+- `contracts/contract-lock.json`
+- `contracts/examples/bff/`
+- `docs/BFF_V1_API_CONTRACT.md`
+
+기능 구현은 `develop`에서 이슈별 feature 브랜치를 분기하고 PR base를 `develop`으로 사용합니다.
+
 ## 다음에 할 일 (TODO)
 
 1. Python 버전(`rule_engine_draft.py`)이랑 같은 입력값 넣어서 결과 똑같이 나오는지 대조 테스트
