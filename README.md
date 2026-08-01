@@ -51,6 +51,7 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 - `docs/BFF_SECURITY.md`
 - `docs/CONFIRMATION_GATE.md`
 - `docs/INCIDENT_AGENT_MEMORY.md`
+- `docs/MOVEMENT_BFF.md`
 - `docs/CI.md`
 
 현재 `POST /api/c2guard/v1/incidents/analyze`는 FE 요청을 Model API 요청으로 변환하고,
@@ -62,6 +63,10 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 
 `POST /api/c2guard/v1/substances/discover`는 FE 관찰·물질명 검색을 Model API 후보 검색으로
 연결하며, 후보 없음·근거 미적재·현장 확인 필요 상태를 그대로 보존합니다.
+
+`POST /api/c2guard/v1/incidents/{incidentId}/movement`는 FE GPS를 AI 호출과 분리해 처리하며,
+stale 위치·sequence 충돌·미구성 지도 provider에서 경로와 ETA를 만들지 않는 fail-closed
+상태를 반환합니다. 실제 도로 경로 adapter는 지도 사업자 결정(#7) 이후 연결합니다.
 
 기능 구현은 `develop`에서 이슈별 feature 브랜치를 분기하고 PR base를 `develop`으로 사용합니다.
 

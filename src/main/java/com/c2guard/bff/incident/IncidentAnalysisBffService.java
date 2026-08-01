@@ -2,6 +2,7 @@ package com.c2guard.bff.incident;
 
 import com.c2guard.bff.common.BffContractException;
 import com.c2guard.bff.confirmation.ConfirmationStore;
+import com.c2guard.bff.movement.IncidentMovementContextStore;
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiResponse;
 import com.c2guard.security.BffUserPrincipal;
@@ -22,6 +23,7 @@ public class IncidentAnalysisBffService {
     private final IncidentAgentMemoryStore agentMemoryStore;
     private final IncidentAgentRequestMapper agentRequestMapper;
     private final IncidentAgentResponseValidator agentResponseValidator;
+    private final IncidentMovementContextStore movementContextStore;
 
     public IncidentAnalysisBffService(ModelApiClient modelApiClient,
                                       IncidentAnalysisRequestMapper requestMapper,
@@ -31,7 +33,8 @@ public class IncidentAnalysisBffService {
                                       ConfirmationStore confirmationStore,
                                       IncidentAgentMemoryStore agentMemoryStore,
                                       IncidentAgentRequestMapper agentRequestMapper,
-                                      IncidentAgentResponseValidator agentResponseValidator) {
+                                      IncidentAgentResponseValidator agentResponseValidator,
+                                      IncidentMovementContextStore movementContextStore) {
         this.modelApiClient = modelApiClient;
         this.requestMapper = requestMapper;
         this.projector = projector;
@@ -41,12 +44,14 @@ public class IncidentAnalysisBffService {
         this.agentMemoryStore = agentMemoryStore;
         this.agentRequestMapper = agentRequestMapper;
         this.agentResponseValidator = agentResponseValidator;
+        this.movementContextStore = movementContextStore;
     }
 
     public JsonNode analyze(IncidentAnalyzeRequest request, String requestId,
                             BffUserPrincipal principal) {
         incidentAccessPolicy.requireAnalyze(principal, request.incidentId());
         PreparedIncidentAnalysis prepared = requestMapper.prepare(request, requestId);
+        movementContextStore.capture(prepared.incidentId(), request);
         requestMapper.addActiveConfirmations(prepared.modelRequest(),
                 confirmationStore.findActiveForIncident(prepared.incidentId()));
         ObjectNode agentRequest = agentRequestMapper.map(prepared.modelRequest(),

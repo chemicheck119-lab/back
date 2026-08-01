@@ -1,6 +1,7 @@
 package com.c2guard.bff.incident;
 
 import com.c2guard.integration.model.ModelApiClient;
+import com.c2guard.bff.movement.IncidentMovementContextStore;
 import com.c2guard.integration.model.ModelApiErrorKind;
 import com.c2guard.integration.model.ModelApiException;
 import com.c2guard.integration.model.ModelApiResponse;
@@ -54,6 +55,9 @@ class IncidentAnalysisControllerTest {
     private IncidentAnalysisSnapshotStore snapshotStore;
 
     @Autowired
+    private IncidentMovementContextStore movementContextStore;
+
+    @Autowired
     private SignedSessionTokenService tokenService;
 
     @MockBean
@@ -89,6 +93,12 @@ class IncidentAnalysisControllerTest {
 
         JsonNode snapshot = snapshotStore.find("ANL-EXAMPLE-0001").orElseThrow().modelResponse();
         org.junit.jupiter.api.Assertions.assertEquals(model, snapshot);
+        IncidentMovementContextStore.IncidentContext movementContext = movementContextStore
+                .find("INC-EXAMPLE-0001").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("예시 사업장",
+                movementContext.incidentPosition().label());
+        org.junit.jupiter.api.Assertions.assertEquals("화성소방서",
+                movementContext.responderLabel());
     }
 
     @Test
