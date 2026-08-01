@@ -89,6 +89,43 @@ class IncidentAnalysisProjectorTest {
     }
 
     @Test
+    void projectsCurrentModelEvidenceGroupsAndProvenance() throws Exception {
+        ObjectNode model = (ObjectNode) load(
+                "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        ArrayNode evidence = objectMapper.createArrayNode();
+        ObjectNode retrieval = evidence.addObject().putObject("retrieval");
+        ObjectNode card = retrieval.putArray("results").addObject();
+        card.put("evidence_id", "KOSHA:LIVE-001");
+        card.put("cas_number", "7782-50-5");
+        card.put("source", "KOSHA");
+        card.put("title", "염소 MSDS");
+        card.put("body_preview", "누출 대응 공식 문서 발췌");
+        card.put("source_url", "https://example.com/kosha/live-001");
+        card.put("document_version", "2026-08-01");
+        model.set("evidence", evidence);
+
+        ObjectNode provenance = (ObjectNode) model.path("provenance");
+        provenance.remove("model_version");
+        provenance.remove("data_version");
+        provenance.remove("final_decision_authority");
+        provenance.put("chemiguard119_version", "0.4.0");
+        provenance.put("resolver_schema_version", "resolver-v3");
+        provenance.put("retriever_schema_version", "retriever-v2");
+        provenance.put("decision_support_only", true);
+
+        JsonNode actual = projector.project(model, "REQ-EXAMPLE-0001",
+                "INC-EXAMPLE-0001");
+
+        assertEquals("KOSHA:LIVE-001",
+                actual.path("evidenceCards").path(0).path("evidenceId").asText());
+        assertEquals("0.4.0", actual.path("provenance").path("modelVersion").asText());
+        assertEquals("resolver-v3 / retriever-v2",
+                actual.path("provenance").path("dataVersion").asText());
+        assertEquals("현장 지휘관",
+                actual.path("provenance").path("finalDecisionAuthority").asText());
+    }
+
+    @Test
     void rejectsAResponseWithADifferentRequestId() throws Exception {
         JsonNode model = load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
 

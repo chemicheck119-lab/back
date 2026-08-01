@@ -49,6 +49,19 @@ class PublicIncidentAnalysisIntegrationTest {
                 .put("request_id", requestId);
         ((com.fasterxml.jackson.databind.node.ObjectNode) model.path("model_outputs"))
                 .putNull("facility_history_candidates");
+        com.fasterxml.jackson.databind.node.ArrayNode evidence =
+                objectMapper.createArrayNode();
+        evidence.addObject().putObject("retrieval").putArray("results");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) model).set("evidence", evidence);
+        com.fasterxml.jackson.databind.node.ObjectNode provenance =
+                (com.fasterxml.jackson.databind.node.ObjectNode) model.path("provenance");
+        provenance.remove("model_version");
+        provenance.remove("data_version");
+        provenance.remove("final_decision_authority");
+        provenance.put("chemiguard119_version", "0.4.0");
+        provenance.put("resolver_schema_version", "resolver-v3");
+        provenance.put("retriever_schema_version", "retriever-v2");
+        provenance.put("decision_support_only", true);
         JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, model,
                 requestId, "INC-EXAMPLE-0001", null);
         when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
