@@ -33,6 +33,9 @@ chemicheck119:
     connect-timeout: ${CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS:2}s
     response-timeout: ${CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS:15}s
     max-retries: ${CHEMICHECK119_MODEL_API_MAX_RETRIES:1}
+  movement:
+    next-refresh-seconds: ${CHEMICHECK119_MOVEMENT_NEXT_REFRESH_SECONDS:5}
+    allow-demo-simulation: ${CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION:false}
 
 management:
   endpoint:

@@ -12,15 +12,15 @@ GitHub Actions `Backend CI`는 `develop`·`main` 대상 pull request와 두 브�
 ./gradlew clean test --no-daemon --console=plain
 ```
 
-현재 테스트에는 BFF Controller·사용자 인증·confirmation gate·AI client·agent memory CAS와
-OpenAPI/fixture SHA drift 검사가 포함됩니다. 실제 Model API, 지도 API, 운영 DB에는 접속하지
-않고 test fixture와 MockWebServer만 사용합니다.
+현재 테스트에는 BFF Controller·사용자 인증·confirmation gate·AI client·agent memory CAS,
+movement 입력·sequence·fail-closed 상태와 OpenAPI/fixture SHA drift 검사가 포함됩니다. 실제
+Model API, 지도 API, 운영 DB에는 접속하지 않고 test fixture와 MockWebServer만 사용합니다.
 
 ## 공급망과 권한
 
 - workflow 권한은 `contents: read`만 사용합니다.
 - `pull_request_target`을 사용하지 않아 외부 PR 코드가 기본 브랜치 권한으로 실행되지 않습니다.
-- 공식 GitHub/Gradle action은 v4의 검증된 commit SHA로 고정합니다.
+- 공식 GitHub/Gradle action은 Node.js 24 기반 릴리스의 검증된 commit SHA로 고정합니다.
 - Gradle wrapper checksum·구조는 별도 wrapper validation action으로 확인합니다.
 - CI에는 운영 API Key, 사용자 session Secret, 지도 Secret, 실제 신고·정밀 위치를 주입하지
   않습니다.
@@ -36,7 +36,7 @@ branch protection의 required check 지정은 이 workflow가 `develop`에서 �
 
 ## 아직 포함하지 않는 범위
 
-- #8 movement provider·GPS·route failure 전체 테스트
+- #8의 live provider·cache·rate limit·재탐색 임계값 테스트
 - #9 선택된 DB migration·transaction·restart persistence 테스트
 - Docker image build·non-root·healthcheck 검증
 - staging의 실제 FE→BE→AI·지도·DB E2E
