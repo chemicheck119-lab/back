@@ -45,6 +45,12 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 - `contracts/contract-lock.json`
 - `contracts/examples/bff/`
 - `docs/BFF_V1_API_CONTRACT.md`
+- `docs/MODEL_API_CLIENT.md`
+- `docs/INCIDENT_ANALYSIS_BFF.md`
+
+현재 `POST /api/c2guard/v1/incidents/analyze`는 FE 요청을 Model API 요청으로 변환하고,
+모델 응답을 확인 gate가 적용된 화면 DTO로 투영합니다. 사용자 인증·사고 접근권한(#5)과
+현장 confirmation 저장(#6)이 병합되기 전에는 운영 공개하지 않습니다.
 
 기능 구현은 `develop`에서 이슈별 feature 브랜치를 분기하고 PR base를 `develop`으로 사용합니다.
 
