@@ -47,6 +47,8 @@ class PublicIncidentAnalysisIntegrationTest {
                 "src/test/resources/fixtures/model/incident_unconfirmed_response.json")));
         ((com.fasterxml.jackson.databind.node.ObjectNode) model)
                 .put("request_id", requestId);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) model.path("model_outputs"))
+                .putNull("facility_history_candidates");
         JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, model,
                 requestId, "INC-EXAMPLE-0001", null);
         when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
@@ -58,7 +60,9 @@ class PublicIncidentAnalysisIntegrationTest {
                         .content(Files.readString(Path.of(
                                 "contracts/examples/bff/incident_analyze_request.json"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.requestId").value(requestId));
+                .andExpect(jsonPath("$.requestId").value(requestId))
+                .andExpect(jsonPath("$.facilityHistory.status").value("NOT_QUERIED"))
+                .andExpect(jsonPath("$.facilityHistory.candidates").isEmpty());
 
         mockMvc.perform(get("/api/c2guard/v1/session"))
                 .andExpect(status().isUnauthorized())

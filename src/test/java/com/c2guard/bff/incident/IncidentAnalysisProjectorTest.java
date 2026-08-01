@@ -74,6 +74,21 @@ class IncidentAnalysisProjectorTest {
     }
 
     @Test
+    void projectsAnUnqueriedFacilityHistoryWhenTheModelReturnsNull() throws Exception {
+        ObjectNode model = (ObjectNode) load(
+                "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        ((ObjectNode) model.path("model_outputs"))
+                .putNull("facility_history_candidates");
+
+        JsonNode actual = projector.project(model, "REQ-EXAMPLE-0001",
+                "INC-EXAMPLE-0001");
+
+        assertEquals("NOT_QUERIED", actual.path("facilityHistory").path("status").asText());
+        assertEquals(0, actual.path("facilityHistory").path("candidates").size());
+        assertFalse(actual.path("facilityHistory").path("warning").asText().isBlank());
+    }
+
+    @Test
     void rejectsAResponseWithADifferentRequestId() throws Exception {
         JsonNode model = load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
 

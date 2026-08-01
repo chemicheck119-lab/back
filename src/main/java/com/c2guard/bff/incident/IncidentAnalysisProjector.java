@@ -64,7 +64,7 @@ class IncidentAnalysisProjector {
         target.set("substanceCandidates", projectSubstanceCandidates(
                 requireArrayField(modelOutputs, "substance_candidates")));
         target.set("facilityHistory", projectFacilityHistory(
-                requireObjectField(modelOutputs, "facility_history_candidates")));
+                modelOutputs.get("facility_history_candidates")));
         target.set("evidenceCards", projectEvidence(requireArrayField(source, "evidence")));
 
         JsonNode groundedRag = source.get("grounded_rag");
@@ -132,6 +132,15 @@ class IncidentAnalysisProjector {
 
     private ObjectNode projectFacilityHistory(JsonNode source) {
         ObjectNode target = objectMapper.createObjectNode();
+        if (source == null || source.isNull()) {
+            target.put("status", "NOT_QUERIED");
+            target.put("label", FACILITY_HISTORY_LABEL);
+            target.put("semantics", FACILITY_HISTORY_SEMANTICS);
+            target.put("warning", "시설명 또는 주소가 없어 과거 공개 이력을 조회하지 않았습니다.");
+            target.putArray("candidates");
+            return target;
+        }
+        source = requireObject(source, "facility_history_candidates");
         copyRequired(target, "status", source, "status");
         target.put("label", FACILITY_HISTORY_LABEL);
         target.put("semantics", FACILITY_HISTORY_SEMANTICS);
