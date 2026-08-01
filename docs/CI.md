@@ -16,6 +16,10 @@ GitHub Actions `Backend CI`는 `develop`·`main` 대상 pull request와 두 브�
 movement 입력·sequence·fail-closed 상태와 OpenAPI/fixture SHA drift 검사가 포함됩니다. 실제
 Model API, 지도 API, 운영 DB에는 접속하지 않고 test fixture와 MockWebServer만 사용합니다.
 
+`Docker image build and smoke` job은 Gradle job 성공 후 고정된 Java 17 base image로 multi-stage
+build를 실행하고 non-root UID, OCI revision, liveness `UP`, 외부 의존성 미구성 시 readiness
+`DOWN`을 확인합니다. image push나 배포는 수행하지 않습니다.
+
 ## 공급망과 권한
 
 - workflow 권한은 `contents: read`만 사용합니다.
@@ -30,15 +34,14 @@ Model API, 지도 API, 운영 DB에는 접속하지 않고 test fixture와 MockW
 성공·실패와 관계없이 JUnit XML과 Gradle HTML test report를 7일간 artifact로 보존합니다.
 테스트 데이터는 저장소의 비민감 fixture와 가짜 Secret만 사용합니다.
 
-GitHub Actions check 이름은 `Backend CI / Gradle test and contract verification`입니다.
-branch protection의 required check 지정은 이 workflow가 `develop`에서 안정적으로 실행된 것을
-확인한 뒤 별도 저장소 설정으로 적용합니다.
+GitHub Actions check 이름은 `Backend CI / Gradle test and contract verification`과
+`Backend CI / Docker image build and smoke`입니다. branch protection의 required check 지정은
+두 workflow가 `develop`에서 안정적으로 실행된 것을 확인한 뒤 별도 저장소 설정으로 적용합니다.
 
 ## 아직 포함하지 않는 범위
 
 - #8의 live provider·cache·rate limit·재탐색 임계값 테스트
 - #9 선택된 DB migration·transaction·restart persistence 테스트
-- Docker image build·non-root·healthcheck 검증
 - staging의 실제 FE→BE→AI·지도·DB E2E
 
 이 항목은 #8·#9 구현과 #10 후속 단계, #11 배포 검증에서 추가합니다.

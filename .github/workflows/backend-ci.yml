@@ -50,3 +50,68 @@ jobs:
             build/reports/tests/test/**
           if-no-files-found: warn
           retention-days: 7
+
+  docker-smoke:
+    name: Docker image build and smoke
+    needs: gradle-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE_TAG: chemicheck119-be:${{ github.sha }}
+      CONTAINER_NAME: chemicheck119-be-smoke
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Build immutable Java 17 image
+        run: |
+          docker build \
+            --build-arg BUILD_REVISION="${GITHUB_SHA}" \
+            --tag "${IMAGE_TAG}" \
+            .
+
+      - name: Verify image metadata and non-root runtime
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect "${IMAGE_TAG}" --format '{{.Config.User}}')" = "10001:10001"
+          test "$(docker image inspect "${IMAGE_TAG}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "${GITHUB_SHA}"
+          test "$(docker image inspect "${IMAGE_TAG}" --format '{{json .Config.Healthcheck.Test}}')" != "null"
+
+      - name: Start container and verify health contracts
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker logs "${CONTAINER_NAME}" || true
+            docker rm --force "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach \
+            --name "${CONTAINER_NAME}" \
+            --publish 127.0.0.1:18080:8080 \
+            --env CHEMICHECK119_SESSION_SECRET=ci-only-session-secret-at-least-32-bytes-long \
+            "${IMAGE_TAG}"
+
+          for attempt in $(seq 1 45); do
+            health="$(docker inspect "${CONTAINER_NAME}" --format '{{.State.Health.Status}}')"
+            if [ "${health}" = "healthy" ]; then
+              break
+            fi
+            if [ "${health}" = "unhealthy" ]; then
+              exit 1
+            fi
+            sleep 2
+          done
+
+          test "$(docker inspect "${CONTAINER_NAME}" --format '{{.State.Health.Status}}')" = "healthy"
+          test "$(docker exec "${CONTAINER_NAME}" id -u)" = "10001"
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18080/actuator/health/liveness \
+            | jq --exit-status '.status == "UP"'
+
+          readiness_status="$(curl --silent --output /tmp/readiness.json \
+            --write-out '%{http_code}' \
+            http://127.0.0.1:18080/actuator/health/readiness)"
+          test "${readiness_status}" = "503"
+          jq --exit-status '.status == "DOWN"' /tmp/readiness.json
