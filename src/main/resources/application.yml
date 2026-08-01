@@ -13,6 +13,16 @@ spring:
       force: true
 
 chemicheck119:
+  bff-security:
+    session-secret: ${CHEMICHECK119_SESSION_SECRET:}
+    issuer: ${CHEMICHECK119_SESSION_ISSUER:chemicheck119-session-gateway}
+    audience: ${CHEMICHECK119_SESSION_AUDIENCE:chemicheck119-bff}
+    session-max-age: ${CHEMICHECK119_SESSION_MAX_AGE:8h}
+    clock-skew: ${CHEMICHECK119_SESSION_CLOCK_SKEW:30s}
+    cookie-name: ${CHEMICHECK119_SESSION_COOKIE_NAME:CHEMICHECK119_SESSION}
+    cookie-secure: ${CHEMICHECK119_SESSION_COOKIE_SECURE:true}
+    cookie-same-site: ${CHEMICHECK119_SESSION_COOKIE_SAME_SITE:Lax}
+    allowed-origins: ${CHEMICHECK119_CORS_ALLOWED_ORIGINS:}
   model-api:
     base-url: ${CHEMICHECK119_MODEL_API_BASE_URL:http://localhost:8000}
     api-key: ${CHEMICHECK119_MODEL_API_KEY:}
@@ -30,7 +40,7 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,modelApi
+          include: readinessState,modelApi,bffSecurity
   endpoints:
     web:
       exposure:

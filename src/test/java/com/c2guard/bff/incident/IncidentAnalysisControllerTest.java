@@ -4,6 +4,7 @@ import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiErrorKind;
 import com.c2guard.integration.model.ModelApiException;
 import com.c2guard.integration.model.ModelApiResponse;
+import com.c2guard.security.SignedSessionTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.file.Files;
@@ -23,11 +25,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static com.c2guard.security.BffTestSession.responder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,6 +49,9 @@ class IncidentAnalysisControllerTest {
     @Autowired
     private IncidentAnalysisSnapshotStore snapshotStore;
 
+    @Autowired
+    private SignedSessionTokenService tokenService;
+
     @MockBean
     private ModelApiClient modelApiClient;
 
@@ -56,12 +64,18 @@ class IncidentAnalysisControllerTest {
                 .thenReturn(new ModelApiResponse(requestId, model));
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(Files.readString(Path.of(
                                 "contracts/examples/bff/incident_analyze_request.json"))))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Request-Id", requestId))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                        allOf(containsString("CHEMICHECK119_SESSION="),
+                                containsString("HttpOnly"),
+                                containsString("Secure"),
+                                containsString("SameSite=Lax"))))
                 .andExpect(content().json(expected.toString(), true));
 
         JsonNode snapshot = snapshotStore.find("ANL-EXAMPLE-0001").orElseThrow().modelResponse();
@@ -73,6 +87,7 @@ class IncidentAnalysisControllerTest {
         String requestId = "REQ-BFF-INVALID-0001";
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\":\"   \",\"evidenceTopK\":11}"))
@@ -98,6 +113,7 @@ class IncidentAnalysisControllerTest {
                 .thenThrow(timeout);
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(Files.readString(Path.of(
@@ -118,6 +134,7 @@ class IncidentAnalysisControllerTest {
                 .thenReturn(new ModelApiResponse(requestId, model));
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(Files.readString(Path.of(
@@ -138,6 +155,7 @@ class IncidentAnalysisControllerTest {
                 .thenThrow(unavailable);
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(Files.readString(Path.of(

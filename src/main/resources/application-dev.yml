@@ -1,0 +1,6 @@
+chemicheck119:
+  bff-security:
+    cookie-secure: false
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000

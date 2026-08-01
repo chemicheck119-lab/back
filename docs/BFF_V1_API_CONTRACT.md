@@ -30,8 +30,9 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 
 ## 3. 인증 경계
 
-OpenAPI의 `ServiceSession`은 `CHEMICHECK119_SESSION` cookie를 예시로 고정합니다. 실제
-Spring Security 구현은 #5에서 확정하지만 다음 의미는 변경하지 않습니다.
+OpenAPI의 `ServiceSession`은 `CHEMICHECK119_SESSION` cookie를 사용합니다. BE는 신뢰된
+인증 adapter가 발급한 HS256 session의 사용자·소속·역할·incident scope와 만료를
+검증합니다. 세부 운영 계약은 `docs/BFF_SECURITY.md`를 기준으로 합니다.
 
 - 401: 인증 자격증명이 없거나 유효하지 않음
 - 403: 인증은 됐지만 해당 incident 또는 기능에 권한이 없음
