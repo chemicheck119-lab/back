@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: c2guard
+  datasource:
+    url: ${CHEMICHECK119_DATABASE_URL:jdbc:h2:mem:chemicheck119;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1}
+    username: ${CHEMICHECK119_DATABASE_USERNAME:sa}
+    password: ${CHEMICHECK119_DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${CHEMICHECK119_DATABASE_MAX_POOL_SIZE:5}
+      minimum-idle: ${CHEMICHECK119_DATABASE_MIN_IDLE:0}
+      connection-timeout: ${CHEMICHECK119_DATABASE_CONNECTION_TIMEOUT_MS:3000}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-migration-naming: true
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   jackson:
@@ -38,6 +50,8 @@ chemicheck119:
   movement:
     next-refresh-seconds: ${CHEMICHECK119_MOVEMENT_NEXT_REFRESH_SECONDS:5}
     allow-demo-simulation: ${CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION:false}
+  persistence:
+    require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
 
 management:
   endpoint:
@@ -48,7 +62,7 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,modelApi,bffSecurity
+          include: readinessState,modelApi,bffSecurity,db,persistence
   endpoints:
     web:
       exposure:

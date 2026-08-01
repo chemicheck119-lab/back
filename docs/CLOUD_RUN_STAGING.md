@@ -37,6 +37,12 @@ Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정 버�
 | `GCP_MODEL_API_KEY_SECRET_VERSION` | `1` |
 | `GCP_SESSION_SECRET` | `chemicheck119-be-session-secret-staging` |
 | `GCP_SESSION_SECRET_VERSION` | `1` |
+| `GCP_DATABASE_URL_SECRET` | 승인된 PostgreSQL JDBC URL secret 이름 |
+| `GCP_DATABASE_URL_SECRET_VERSION` | 고정 secret version |
+| `GCP_DATABASE_USERNAME_SECRET` | DB 사용자 secret 이름 |
+| `GCP_DATABASE_USERNAME_SECRET_VERSION` | 고정 secret version |
+| `GCP_DATABASE_PASSWORD_SECRET` | DB 비밀번호 secret 이름 |
+| `GCP_DATABASE_PASSWORD_SECRET_VERSION` | 고정 secret version |
 | `GCP_CORS_ALLOWED_ORIGINS` | 실제 HTTPS FE origin, 확정 전에는 미등록 |
 | `GCP_MIN_INSTANCES` | `0` |
 | `GCP_MAX_INSTANCES` | `1` |
@@ -53,7 +59,7 @@ Actions에서 `Backend Cloud Run staging deployment`를 `develop` ref로 선택�
 2. commit SHA를 OCI revision label로 포함한 non-root 이미지 빌드
 3. Artifact Registry push 후 `image@sha256` digest 확정
 4. 새 Cloud Run revision을 `--no-traffic` candidate tag로 배포
-5. candidate URL에서 liveness, AI·세션 readiness, 익명 API 차단 검사
+5. candidate URL에서 PostgreSQL·AI·세션 readiness, liveness, 익명 API 차단 검사
 6. 새 revision으로 트래픽 100% 원자 전환
 7. stable URL 재검사; 실패하면 직전 revision으로 자동 롤백
 
@@ -69,15 +75,17 @@ gcloud run services update-traffic chemicheck119-be-staging \
 
 ## 운영 전환 차단 조건
 
-현재 confirmation, incident memory, movement state, record가 프로세스 메모리에 있다. 따라서
-revision 전환 시 진행 중인 사고 상태가 새 instance로 승계되지 않으며, 여러 instance나 revision에
-트래픽을 분할하면 같은 incident의 상태가 갈라질 수 있다.
+confirmation, incident memory, analysis, movement state와 v1 record는 PostgreSQL/Flyway 저장
+계층으로 전환됐다. staging workflow는 `CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=true`와
+PostgreSQL credential secret을 강제하므로 in-memory H2로 배포할 수 없다. DB 리소스와 secret이
+승인·등록되기 전에는 새 revision 배포가 validation 단계에서 중단된다.
 
-이 workflow는 그 위험을 제한하기 위해 staging 전용이고 `GCP_MAX_INSTANCES=1`만 허용한다.
+이 workflow는 공유 DB의 부하·동시성·복원 검증이 끝날 때까지 staging 전용이고
+`GCP_MAX_INSTANCES=1`만 허용한다.
 운영 무중단 배포와 canary traffic split은 다음 조건을 모두 충족한 뒤 별도 production workflow로
 만든다.
 
-- 사고·확정·이동·대응 기록을 공유 영속 저장소로 이전
+- Cloud SQL 백업·PITR·복원 rehearsal과 migration rollback 절차 승인
 - 인증 adapter에서 실제 session 발급 및 만료·폐기 E2E 검증
 - 실제 FE HTTPS origin을 CORS allowlist에 등록
 - 후보 revision에서 서명 세션을 이용한 BE→AI 사고 분석 smoke 추가

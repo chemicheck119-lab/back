@@ -1,9 +1,16 @@
 package com.c2guard.bff.confirmation;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -25,13 +32,27 @@ public class ConfirmationStore {
     private final Set<String> reservedIds = ConcurrentHashMap.newKeySet();
     private final ConfirmationIdGenerator idGenerator;
     private final Clock clock;
+    private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate transactionTemplate;
 
     public ConfirmationStore(ConfirmationIdGenerator idGenerator, Clock clock) {
+        this(idGenerator, clock, null, null);
+    }
+
+    @Autowired
+    public ConfirmationStore(ConfirmationIdGenerator idGenerator, Clock clock,
+                             JdbcTemplate jdbcTemplate,
+                             TransactionTemplate transactionTemplate) {
         this.idGenerator = idGenerator;
         this.clock = clock;
+        this.jdbcTemplate = jdbcTemplate;
+        this.transactionTemplate = transactionTemplate;
     }
 
     ConfirmationSaveResult save(ConfirmationSaveCommand command) {
+        if (jdbcTemplate != null) {
+            return saveDatabase(command);
+        }
         IncidentRoleKey key = new IncidentRoleKey(command.incidentId(), command.role());
         AtomicReference<ConfirmationSaveResult> result = new AtomicReference<>();
         histories.compute(key, (ignored, existing) -> {
@@ -69,6 +90,16 @@ public class ConfirmationStore {
 
     public Optional<SubstanceConfirmation> findActive(String incidentId,
                                                       ConfirmationRole role) {
+        if (jdbcTemplate != null) {
+            return jdbcTemplate.query("""
+                            SELECT c.*
+                            FROM incident_confirmation_heads h
+                            JOIN substance_confirmations c
+                              ON c.confirmation_id = h.active_confirmation_id
+                            WHERE h.incident_id = ? AND h.confirmation_role = ?
+                            """, (resultSet, rowNumber) -> mapConfirmation(resultSet),
+                    incidentId, role.name()).stream().findFirst();
+        }
         List<SubstanceConfirmation> history = histories.get(
                 new IncidentRoleKey(incidentId, role));
         if (history == null || history.isEmpty()) {
@@ -90,11 +121,178 @@ public class ConfirmationStore {
     }
 
     public Optional<SubstanceConfirmation> findById(String confirmationId) {
+        if (jdbcTemplate != null) {
+            return jdbcTemplate.query("""
+                            SELECT * FROM substance_confirmations
+                            WHERE confirmation_id = ?
+                            """, (resultSet, rowNumber) -> mapConfirmation(resultSet),
+                    confirmationId).stream().findFirst();
+        }
         return Optional.ofNullable(byId.get(confirmationId));
     }
 
     public List<SubstanceConfirmation> history(String incidentId, ConfirmationRole role) {
+        if (jdbcTemplate != null) {
+            return jdbcTemplate.query("""
+                            SELECT * FROM substance_confirmations
+                            WHERE incident_id = ? AND confirmation_role = ?
+                            ORDER BY revision
+                            """, (resultSet, rowNumber) -> mapConfirmation(resultSet),
+                    incidentId, role.name());
+        }
         return histories.getOrDefault(new IncidentRoleKey(incidentId, role), List.of());
+    }
+
+    private ConfirmationSaveResult saveDatabase(ConfirmationSaveCommand command) {
+        ensureHead(command);
+        for (int attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
+            try {
+                ConfirmationSaveResult result = transactionTemplate.execute(status -> {
+                    ConfirmationHead head = jdbcTemplate.query("""
+                                    SELECT active_confirmation_id, revision
+                                    FROM incident_confirmation_heads
+                                    WHERE incident_id = ? AND confirmation_role = ?
+                                    FOR UPDATE
+                                    """, (resultSet, rowNumber) -> new ConfirmationHead(
+                                    resultSet.getString("active_confirmation_id"),
+                                    resultSet.getLong("revision")),
+                            command.incidentId(), command.role().name()).stream()
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "confirmation head를 생성하지 못했습니다."));
+
+                    SubstanceConfirmation active = head.activeConfirmationId() == null
+                            ? null : findById(head.activeConfirmationId()).orElseThrow(
+                            () -> new IllegalStateException(
+                                    "confirmation head가 존재하지 않는 record를 참조합니다."));
+                    if (active != null && active.status() == ConfirmationStatus.ACTIVE
+                            && active.semanticallyEquals(command)) {
+                        return new ConfirmationSaveResult(active, false);
+                    }
+
+                    String confirmationId = nextDatabaseId();
+                    Instant createdAt = clock.instant();
+                    long revision = head.revision() + 1;
+                    SubstanceConfirmation created = new SubstanceConfirmation(
+                            confirmationId, command.incidentId(), command.role(),
+                            command.casNumber(), command.displayName(),
+                            command.confirmationBasis(), command.observedAt(),
+                            command.userId(), command.organizationId(), createdAt,
+                            command.requestId(), revision, ConfirmationStatus.ACTIVE,
+                            null, null);
+
+                    insert(created);
+                    if (active != null) {
+                        jdbcTemplate.update("""
+                                        UPDATE substance_confirmations
+                                        SET confirmation_status = 'SUPERSEDED',
+                                            superseded_by_confirmation_id = ?,
+                                            superseded_at = ?
+                                        WHERE confirmation_id = ?
+                                          AND confirmation_status = 'ACTIVE'
+                                        """, confirmationId,
+                                OffsetDateTime.ofInstant(createdAt, ZoneOffset.UTC),
+                                active.confirmationId());
+                    }
+                    int changed = jdbcTemplate.update("""
+                                    UPDATE incident_confirmation_heads
+                                    SET active_confirmation_id = ?, revision = ?
+                                    WHERE incident_id = ? AND confirmation_role = ?
+                                      AND revision = ?
+                                    """, confirmationId, revision,
+                            command.incidentId(), command.role().name(), head.revision());
+                    if (changed != 1) {
+                        throw new IllegalStateException(
+                                "confirmation revision을 원자적으로 갱신하지 못했습니다.");
+                    }
+                    return new ConfirmationSaveResult(created, true);
+                });
+                if (result != null) {
+                    return result;
+                }
+            } catch (DuplicateKeyException collision) {
+                // A generated confirmation ID collided. Retry in a fresh transaction.
+            }
+        }
+        throw new IllegalStateException("고유한 confirmation ID를 생성하지 못했습니다.");
+    }
+
+    private void ensureHead(ConfirmationSaveCommand command) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM incident_confirmation_heads
+                        WHERE incident_id = ? AND confirmation_role = ?
+                        """, Integer.class, command.incidentId(), command.role().name());
+        if (count != null && count > 0) {
+            return;
+        }
+        try {
+            transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update("""
+                            INSERT INTO incident_confirmation_heads (
+                                incident_id, confirmation_role,
+                                active_confirmation_id, revision
+                            ) VALUES (?, ?, NULL, 0)
+                            """, command.incidentId(), command.role().name()));
+        } catch (DuplicateKeyException concurrentInsert) {
+            Integer concurrentCount = jdbcTemplate.queryForObject("""
+                            SELECT COUNT(*) FROM incident_confirmation_heads
+                            WHERE incident_id = ? AND confirmation_role = ?
+                            """, Integer.class, command.incidentId(),
+                    command.role().name());
+            if (concurrentCount == null || concurrentCount == 0) {
+                throw concurrentInsert;
+            }
+        }
+    }
+
+    private void insert(SubstanceConfirmation confirmation) {
+        jdbcTemplate.update("""
+                        INSERT INTO substance_confirmations (
+                            confirmation_id, incident_id, confirmation_role,
+                            cas_number, display_name, confirmation_basis,
+                            observed_at, confirmed_by_user_id,
+                            confirmed_by_organization_id, created_at,
+                            created_request_id, revision, confirmation_status,
+                            superseded_by_confirmation_id, superseded_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+                        """, confirmation.confirmationId(), confirmation.incidentId(),
+                confirmation.role().name(), confirmation.casNumber(),
+                confirmation.displayName(), confirmation.confirmationBasis().name(),
+                confirmation.observedAt(), confirmation.confirmedByUserId(),
+                confirmation.confirmedByOrganizationId(),
+                OffsetDateTime.ofInstant(confirmation.createdAt(), ZoneOffset.UTC),
+                confirmation.createdRequestId(), confirmation.revision(),
+                confirmation.status().name());
+    }
+
+    private String nextDatabaseId() {
+        String candidate = idGenerator.nextId();
+        if (candidate == null || !candidate.matches("^[A-Za-z0-9_.:-]{1,128}$")) {
+            throw new DataIntegrityViolationException("invalid generated confirmation ID");
+        }
+        return candidate;
+    }
+
+    private SubstanceConfirmation mapConfirmation(java.sql.ResultSet resultSet)
+            throws java.sql.SQLException {
+        OffsetDateTime createdAt = resultSet.getObject("created_at", OffsetDateTime.class);
+        OffsetDateTime supersededAt = resultSet.getObject(
+                "superseded_at", OffsetDateTime.class);
+        return new SubstanceConfirmation(
+                resultSet.getString("confirmation_id"),
+                resultSet.getString("incident_id"),
+                ConfirmationRole.valueOf(resultSet.getString("confirmation_role")),
+                resultSet.getString("cas_number"),
+                resultSet.getString("display_name"),
+                ConfirmationBasis.valueOf(resultSet.getString("confirmation_basis")),
+                resultSet.getObject("observed_at", OffsetDateTime.class),
+                resultSet.getString("confirmed_by_user_id"),
+                resultSet.getString("confirmed_by_organization_id"),
+                createdAt.toInstant(),
+                resultSet.getString("created_request_id"),
+                resultSet.getLong("revision"),
+                ConfirmationStatus.valueOf(resultSet.getString("confirmation_status")),
+                resultSet.getString("superseded_by_confirmation_id"),
+                supersededAt == null ? null : supersededAt.toInstant());
     }
 
     private String reserveId() {
@@ -109,5 +307,8 @@ public class ConfirmationStore {
     }
 
     private record IncidentRoleKey(String incidentId, ConfirmationRole role) {
+    }
+
+    private record ConfirmationHead(String activeConfirmationId, long revision) {
     }
 }
