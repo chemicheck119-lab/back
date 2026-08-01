@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -166,20 +167,37 @@ class IncidentAnalysisProjector {
 
     private ArrayNode projectEvidence(ArrayNode source) {
         ArrayNode target = objectMapper.createArrayNode();
-        source.forEach(cardNode -> {
-            JsonNode card = requireObject(cardNode, "evidence card");
-            ObjectNode projected = target.addObject();
-            copyRequired(projected, "evidenceId", card, "evidence_id");
-            copyRequired(projected, "casNumber", card, "cas_number");
-            copyRequired(projected, "source", card, "source");
-            copyRequired(projected, "title", card, "title");
-            projected.put("bodyLabel", "공식 문서 발췌");
-            copyRequired(projected, "bodyPreview", card, "body_preview");
-            copyRequired(projected, "sourceUrl", card, "source_url");
-            copyRequired(projected, "documentVersion", card, "document_version");
-            copyOptional(projected, "casLinkStatus", card, "cas_link_status");
+        Set<String> evidenceIds = new LinkedHashSet<>();
+        source.forEach(evidenceNode -> {
+            JsonNode evidence = requireObject(evidenceNode, "evidence result");
+            if (evidence.has("evidence_id")) {
+                projectEvidenceCard(target, evidence, evidenceIds);
+                return;
+            }
+            JsonNode retrieval = requireObjectField(evidence, "retrieval");
+            requireArrayField(retrieval, "results").forEach(cardNode ->
+                    projectEvidenceCard(target,
+                            requireObject(cardNode, "evidence card"), evidenceIds));
         });
         return target;
+    }
+
+    private void projectEvidenceCard(ArrayNode target, JsonNode card,
+                                     Set<String> evidenceIds) {
+        String evidenceId = requireText(card, "evidence_id");
+        if (!evidenceIds.add(evidenceId)) {
+            return;
+        }
+        ObjectNode projected = target.addObject();
+        projected.put("evidenceId", evidenceId);
+        copyRequired(projected, "casNumber", card, "cas_number");
+        copyRequired(projected, "source", card, "source");
+        copyRequired(projected, "title", card, "title");
+        projected.put("bodyLabel", "공식 문서 발췌");
+        copyRequired(projected, "bodyPreview", card, "body_preview");
+        copyRequired(projected, "sourceUrl", card, "source_url");
+        copyRequired(projected, "documentVersion", card, "document_version");
+        copyOptional(projected, "casLinkStatus", card, "cas_link_status");
     }
 
     private ObjectNode projectGroundedRag(JsonNode source) {
@@ -374,11 +392,30 @@ class IncidentAnalysisProjector {
 
     private ObjectNode projectProvenance(JsonNode source) {
         ObjectNode target = objectMapper.createObjectNode();
-        copyRequired(target, "modelVersion", source, "model_version");
-        copyRequired(target, "dataVersion", source, "data_version");
+        JsonNode modelVersion = source.get("model_version");
+        target.put("modelVersion", modelVersion != null && modelVersion.isTextual()
+                && !modelVersion.asText().isBlank()
+                ? modelVersion.asText() : requireText(source, "chemiguard119_version"));
+        JsonNode dataVersion = source.get("data_version");
+        if (dataVersion != null && dataVersion.isTextual()
+                && !dataVersion.asText().isBlank()) {
+            target.put("dataVersion", dataVersion.asText());
+        } else {
+            target.put("dataVersion", requireText(source, "resolver_schema_version")
+                    + " / " + requireText(source, "retriever_schema_version"));
+        }
         copyRequired(target, "rulePolicy", source, "rule_policy");
         copyRequired(target, "expertReviewed", source, "expert_reviewed");
-        copyRequired(target, "finalDecisionAuthority", source, "final_decision_authority");
+        JsonNode finalAuthority = source.get("final_decision_authority");
+        if (finalAuthority != null && finalAuthority.isTextual()
+                && !finalAuthority.asText().isBlank()) {
+            target.set("finalDecisionAuthority", finalAuthority.deepCopy());
+        } else {
+            if (!requireBoolean(source, "decision_support_only")) {
+                throw violation("의사결정 보조 범위가 아닌 모델 provenance는 표시할 수 없습니다.");
+            }
+            target.put("finalDecisionAuthority", "현장 지휘관");
+        }
         if (target.path("expertReviewed").asBoolean(true)) {
             throw violation("현재 BFF v1은 expertReviewed=false 계약만 지원합니다.");
         }
