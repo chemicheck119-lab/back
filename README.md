@@ -54,6 +54,7 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 - `docs/MOVEMENT_BFF.md`
 - `docs/CONTAINER_RUNTIME.md`
 - `docs/CLOUD_RUN_STAGING.md`
+- `docs/DATABASE_PERSISTENCE_ADR.md`
 - `docs/CI.md`
 
 현재 `POST /api/c2guard/v1/incidents/analyze`는 FE 요청을 Model API 요청으로 변환하고,

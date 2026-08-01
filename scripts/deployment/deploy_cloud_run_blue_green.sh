@@ -14,6 +14,12 @@ required_variables=(
   GCP_MODEL_API_KEY_SECRET_VERSION
   GCP_SESSION_SECRET
   GCP_SESSION_SECRET_VERSION
+  GCP_DATABASE_URL_SECRET
+  GCP_DATABASE_URL_SECRET_VERSION
+  GCP_DATABASE_USERNAME_SECRET
+  GCP_DATABASE_USERNAME_SECRET_VERSION
+  GCP_DATABASE_PASSWORD_SECRET
+  GCP_DATABASE_PASSWORD_SECRET_VERSION
 )
 for variable_name in "${required_variables[@]}"; do
   test -n "${!variable_name:-}" || {
@@ -29,15 +35,21 @@ cors_allowed_origins="${GCP_CORS_ALLOWED_ORIGINS:-}"
 [[ "$maximum_instances" =~ ^[1-9][0-9]*$ ]]
 (( minimum_instances <= maximum_instances ))
 test "$maximum_instances" = "1" || {
-  echo "Staging is limited to one instance until incident state is persisted."
+  echo "Staging is limited to one instance until shared DB concurrency and restore rehearsal pass."
   exit 1
 }
 [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
 [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+[[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+[[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+[[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
 [[ "$RELEASE_GIT_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
 [[ "$GCP_MODEL_API_KEY_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
 [[ "$GCP_SESSION_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+[[ "$GCP_DATABASE_URL_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+[[ "$GCP_DATABASE_USERNAME_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+[[ "$GCP_DATABASE_PASSWORD_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
 if [ -n "$cors_allowed_origins" ]; then
   [[ "$cors_allowed_origins" != *";"* ]]
   [[ "$cors_allowed_origins" =~ ^https://[^[:space:],]+(,https://[^[:space:],]+)*$ ]]
@@ -76,7 +88,7 @@ PY
 )"
 fi
 
-env_vars="CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins"
+env_vars="CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=true"
 
 gcloud run deploy "$GCP_CLOUD_RUN_SERVICE" \
   --project "$GCP_PROJECT_ID" \
@@ -104,7 +116,7 @@ gcloud run deploy "$GCP_CLOUD_RUN_SERVICE" \
   --readiness-probe="httpGet.path=/actuator/health/readiness,httpGet.port=8080,timeoutSeconds=3,periodSeconds=5,failureThreshold=3,successThreshold=1" \
   --update-labels="app=chemicheck119,component=be,environment=staging,git-sha=$RELEASE_GIT_COMMIT" \
   --set-env-vars="^;^$env_vars" \
-  --set-secrets="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION" \
+  --set-secrets="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION,CHEMICHECK119_DATABASE_URL=$GCP_DATABASE_URL_SECRET:$GCP_DATABASE_URL_SECRET_VERSION,CHEMICHECK119_DATABASE_USERNAME=$GCP_DATABASE_USERNAME_SECRET:$GCP_DATABASE_USERNAME_SECRET_VERSION,CHEMICHECK119_DATABASE_PASSWORD=$GCP_DATABASE_PASSWORD_SECRET:$GCP_DATABASE_PASSWORD_SECRET_VERSION" \
   --quiet
 
 gcloud run services describe "$GCP_CLOUD_RUN_SERVICE" \
