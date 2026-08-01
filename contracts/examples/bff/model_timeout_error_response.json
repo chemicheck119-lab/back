@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "requestId": "REQ-BFF-TIMEOUT-0001",
+  "error": {
+    "code": "MODEL_TIMEOUT",
+    "message": "모델 서비스가 제한 시간 안에 응답하지 않았습니다. 현재 화면을 유지하고 다시 시도하세요.",
+    "retryable": true
+  },
+  "resetAllowed": false
+}

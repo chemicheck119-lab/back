@@ -1,0 +1,325 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "sourceModelSchemaVersion": "chemiguard119-api-v1",
+  "analysisId": "ANL-EXAMPLE-0002",
+  "requestId": "REQ-EXAMPLE-0002",
+  "incidentId": "INC-EXAMPLE-0001",
+  "state": "SCREENING_COMPLETED",
+  "parser": {
+    "backend": "DETERMINISTIC_BASELINE",
+    "incidentTypes": [
+      "LEAK"
+    ],
+    "substanceMentions": [
+      {
+        "surfaceText": "차아염소산나트륨",
+        "role": "INCIDENT",
+        "assertion": "AFFIRMED"
+      },
+      {
+        "surfaceText": "염산",
+        "role": "FACILITY",
+        "assertion": "AFFIRMED"
+      }
+    ],
+    "warning": "신고문 후보와 별도로 현장 확인 레코드를 사용했습니다."
+  },
+  "substanceCandidates": [],
+  "facilityHistory": {
+    "status": "NO_HISTORY_MATCH",
+    "label": "과거 공개 이력 기반 시설물질 후보",
+    "semantics": "HISTORICAL_CANDIDATE_NOT_CURRENT_INVENTORY",
+    "warning": "시설 후보는 과거 신고·취급 이력이며 현재 재고를 의미하지 않습니다.",
+    "candidates": []
+  },
+  "evidenceCards": [],
+  "groundedRag": {
+    "schemaVersion": "chemicheck119-grounded-rag-v1",
+    "status": "FALLBACK_EXTRACTIVE",
+    "usedLlm": false,
+    "model": null,
+    "statements": [
+      {
+        "text": "NOAA/EPA CAMEO 공개 원자료로 대조한 반응성 그룹 조합 중 가장 보수적인 등급은 높음입니다.",
+        "sourceIds": [
+          "RULE_RESULT"
+        ]
+      }
+    ],
+    "citations": [
+      {
+        "sourceId": "RULE_RESULT",
+        "sourceType": "CAMEO_RULE_ENGINE",
+        "title": "확인된 두 물질의 CAMEO 충돌 스크리닝",
+        "casNumber": null,
+        "sourceUrls": [
+          "https://cameochemicals.noaa.gov/reactivity"
+        ]
+      }
+    ],
+    "riskDecisionSource": "DETERMINISTIC_CAMEO_RULE_ENGINE",
+    "semanticGroundingVerified": false,
+    "fallbackReason": "EXTRACTIVE_MODE",
+    "limitations": [
+      "LLM은 위험등급을 결정하지 않습니다."
+    ]
+  },
+  "confirmationGate": {
+    "policy": "TWO_AUTHENTICATED_ON_SITE_CONFIRMATIONS_REQUIRED",
+    "incidentConfirmed": true,
+    "facilityConfirmed": true,
+    "allRequiredConfirmed": true,
+    "ruleExecutionAllowed": true
+  },
+  "conflictReview": {
+    "executed": true,
+    "status": "SCREENING_COMPLETED",
+    "result": {
+      "kind": "ORDINAL_SCREENING_RESULT",
+      "status": "SCREENING_COMPLETED",
+      "scope": "PUBLIC_SOURCE_CAMEO_SCREENING",
+      "policyMode": "PUBLIC_SOURCE_PILOT_V1",
+      "incidentCas": "7681-52-9",
+      "facilityCas": "7647-01-0",
+      "ruleId": "CAMEO-REACTIVE-GROUP-COMPATIBILITY-MATRIX",
+      "ruleVersion": "RUNTIME_MANIFEST_PINNED",
+      "severity": "HIGH_RISK",
+      "riskLevel": "HIGH",
+      "riskLevelKo": "높음",
+      "riskScale": {
+        "type": "ORDINAL_CAMEO_COMPATIBILITY_CLASS",
+        "rawClassId": 2,
+        "isProbability": false,
+        "probabilityPercent": null,
+        "lowMeansSafe": false
+      },
+      "hazardCodes": [
+        "C",
+        "E",
+        "F",
+        "G",
+        "NR",
+        "R1",
+        "R3",
+        "T"
+      ],
+      "gasProducts": [
+        "Acid Fumes",
+        "BR2",
+        "Cl2",
+        "ClO2",
+        "HX",
+        "NOx",
+        "O2",
+        "X2",
+        "X2O"
+      ],
+      "briefText": "NOAA/EPA CAMEO 공개 원자료로 대조한 반응성 그룹 조합 중 가장 보수적인 등급은 높음입니다.",
+      "requiredChecks": [
+        "용기 라벨·현장 MSDS로 두 물질과 물리적 형태를 재확인",
+        "저장구역·배수로·환기계통의 실제 연결 여부 확인",
+        "농도·온도·압력과 누출액의 실제 혼합 여부 확인"
+      ],
+      "evidenceUrls": [
+        "https://cameochemicals.noaa.gov/chemical/4503",
+        "https://cameochemicals.noaa.gov/chemical/3598",
+        "https://cameochemicals.noaa.gov/reactivity"
+      ],
+      "limitations": [
+        "이 결과는 전문가 승인 결과가 아니라 공개 원자료 기반 파일럿 스크리닝입니다.",
+        "낮음은 '알려진 유해 반응 없음'이며 안전 보장을 뜻하지 않습니다.",
+        "이 등급은 사고확률이나 피해확률이 아닌 CAMEO 반응성 그룹의 서수 분류입니다.",
+        "시설물질의 현재 수량·농도·저장상태와 실제 혼합 여부를 현장에서 확인해야 합니다.",
+        "최종 결정은 현장 지휘관이 수행합니다."
+      ],
+      "finalDecision": "현장 지휘관 판단",
+      "expertReviewed": false,
+      "humanConfirmationRequired": true,
+      "mappingProvenance": [
+        {
+          "role": "INCIDENT",
+          "casNumber": "7681-52-9",
+          "cameoChemicalId": "4503",
+          "selectedForm": "SODIUM HYPOCHLORITE",
+          "verificationStatus": "PUBLIC_SOURCE_VERIFIED",
+          "verificationMethod": "EXACT_CAS_AND_FORM_ON_OFFICIAL_DATASHEET",
+          "evidenceUrl": "https://cameochemicals.noaa.gov/chemical/4503",
+          "sourceProduct": "NOAA/EPA CAMEO Chemicals",
+          "sourceVersion": "3.1.0 rev 1",
+          "checkedAtUtc": "2026-07-22T00:00:00+00:00"
+        },
+        {
+          "role": "FACILITY",
+          "casNumber": "7647-01-0",
+          "cameoChemicalId": "3598",
+          "selectedForm": "HYDROCHLORIC ACID, SOLUTION",
+          "verificationStatus": "PUBLIC_SOURCE_VERIFIED",
+          "verificationMethod": "EXACT_CAS_AND_FORM_ON_OFFICIAL_DATASHEET",
+          "evidenceUrl": "https://cameochemicals.noaa.gov/chemical/3598",
+          "sourceProduct": "NOAA/EPA CAMEO Chemicals",
+          "sourceVersion": "3.1.0 rev 1",
+          "checkedAtUtc": "2026-07-22T00:00:00+00:00"
+        }
+      ],
+      "evidenceProvenance": {
+        "basis": "PUBLIC_OFFICIAL_SOURCE",
+        "sourceProduct": "NOAA/EPA CAMEO Chemicals",
+        "sourceVersions": [
+          "3.1.0 rev 1"
+        ],
+        "mappingEvidenceUrls": [
+          "https://cameochemicals.noaa.gov/chemical/4503",
+          "https://cameochemicals.noaa.gov/chemical/3598"
+        ],
+        "compatibilityEvidenceUrls": [
+          "https://cameochemicals.noaa.gov/reactivity"
+        ]
+      },
+      "referenceAssurance": {
+        "schemaVersion": "chemicheck119-reference-assurance-v1",
+        "policyId": "OFFICIAL_REFERENCE_TRIANGULATION_V1",
+        "status": "REFERENCE_TRIANGULATED",
+        "claimId": "HYPOCHLORITE_ACID_CHLORINE_RELEASE_V1",
+        "claimType": "TOXIC_GAS_GENERATION",
+        "casPair": [
+          "7647-01-0",
+          "7681-52-9"
+        ],
+        "claimTextKo": "차아염소산나트륨이 염산과 같은 산성 물질과 실제 접촉하면 독성 염소가스가 발생할 수 있습니다.",
+        "expectedGasProducts": [
+          "Cl2"
+        ],
+        "scopeConditions": [
+          "차아염소산나트륨 수용액과 산성 물질의 실제 접촉",
+          "농도·온도·혼합량에 따라 발생량과 피해 정도가 달라짐"
+        ],
+        "notProvenByClaim": [
+          "현장에 두 물질이 실제 존재하는지",
+          "두 물질이 실제 혼합됐는지",
+          "발생한 염소가스의 농도와 확산범위",
+          "특정 보호구가 현장 조건에 적합한지"
+        ],
+        "referenceCount": 5,
+        "independentAuthorityCount": 4,
+        "sources": [
+          {
+            "sourceId": "CAMEO_4503_REACTIVITY_PROFILE",
+            "authorityId": "NOAA_EPA_CAMEO",
+            "organization": "NOAA Office of Response and Restoration / U.S. EPA",
+            "independenceGroup": "US_NOAA_EPA_CAMEO",
+            "authorityKind": "GOVERNMENT_EMERGENCY_RESPONSE",
+            "sourceRole": "PRIMARY_REACTIVITY_DATASHEET",
+            "title": "SODIUM HYPOCHLORITE — CAMEO Chemicals",
+            "sourceUrl": "https://cameochemicals.noaa.gov/chemical/4503",
+            "locator": "Hazards > Reactivity Profile",
+            "publishedOrUpdated": "CAMEO Chemicals 3.1.0 rev 1",
+            "relation": "SUPPORTS"
+          },
+          {
+            "sourceId": "CDC_MMWR_BLEACH_ACID_INCIDENTS",
+            "authorityId": "US_CDC",
+            "organization": "U.S. Centers for Disease Control and Prevention",
+            "independenceGroup": "US_CDC",
+            "authorityKind": "GOVERNMENT_PUBLIC_HEALTH",
+            "sourceRole": "INCIDENT_OR_PUBLIC_HEALTH_CORROBORATION",
+            "title": "Chlorine Gas Toxicity from Mixture of Bleach with Other Cleaning Products",
+            "sourceUrl": "https://www.cdc.gov/mmwr/preview/mmwrhtml/00015111.htm",
+            "locator": "Editorial Note",
+            "publishedOrUpdated": "MMWR incident report",
+            "relation": "SUPPORTS_WITH_INCIDENT_AND_MECHANISM"
+          },
+          {
+            "sourceId": "CDC_HYPOCHLORITE_DISINFECTANT_GUIDANCE",
+            "authorityId": "US_CDC",
+            "organization": "U.S. Centers for Disease Control and Prevention",
+            "independenceGroup": "US_CDC",
+            "authorityKind": "GOVERNMENT_PUBLIC_HEALTH",
+            "sourceRole": "INCIDENT_OR_PUBLIC_HEALTH_CORROBORATION",
+            "title": "Chemical Disinfectants — Chlorine and Chlorine Compounds",
+            "sourceUrl": "https://www.cdc.gov/infection-control/hcp/disinfection-sterilization/chemical-disinfectants.html",
+            "locator": "Chlorine and Chlorine Compounds",
+            "publishedOrUpdated": "CDC web guidance",
+            "relation": "SUPPORTS"
+          },
+          {
+            "sourceId": "ICSC_1119_SODIUM_HYPOCHLORITE",
+            "authorityId": "ILO_WHO_ICSC",
+            "organization": "International Labour Organization / World Health Organization",
+            "independenceGroup": "ILO_WHO_IPCS",
+            "authorityKind": "INTERGOVERNMENTAL_CHEMICAL_SAFETY",
+            "sourceRole": "INTERNATIONAL_CHEMICAL_SAFETY_CARD",
+            "title": "ICSC 1119 — Sodium Hypochlorite Solution, Active Chlorine >10%",
+            "sourceUrl": "https://inchem.org/documents/icsc/icsc/eics1119.htm",
+            "locator": "Chemical dangers",
+            "publishedOrUpdated": "April 2017",
+            "relation": "SUPPORTS"
+          },
+          {
+            "sourceId": "UKHSA_SODIUM_HYPOCHLORITE_GENERAL",
+            "authorityId": "UKHSA",
+            "organization": "UK Health Security Agency",
+            "independenceGroup": "UKHSA",
+            "authorityKind": "GOVERNMENT_PUBLIC_HEALTH",
+            "sourceRole": "INCIDENT_OR_PUBLIC_HEALTH_CORROBORATION",
+            "title": "Sodium hypochlorite: general information",
+            "sourceUrl": "https://www.gov.uk/government/publications/sodium-hypochlorite-properties-incident-management-and-toxicology/sodium-hypochlorite-general-information",
+            "locator": "How exposure to sodium hypochlorite can affect your health",
+            "publishedOrUpdated": "2025-04-24",
+            "relation": "SUPPORTS"
+          }
+        ],
+        "claimChecks": [
+          {
+            "claim": "SUBSTANCE_IDENTITY_AND_FORM",
+            "status": "PASSED",
+            "basis": "CAMEO 공식 물질 페이지의 CAS와 형태를 정확 대조"
+          },
+          {
+            "claim": "PAIR_REACTIVITY_SCREENING",
+            "status": "PASSED",
+            "basis": "서로 독립된 공식기관 자료가 동일 위험 메커니즘을 지지"
+          },
+          {
+            "claim": "CURRENT_SITE_INVENTORY",
+            "status": "NOT_PROVEN",
+            "basis": "공개 이력과 문헌은 현재 재고를 증명하지 않음"
+          },
+          {
+            "claim": "ACTUAL_MIXING_AND_FIELD_CONDITIONS",
+            "status": "NOT_PROVEN",
+            "basis": "농도·온도·누출량·실제 혼합은 현장 확인 대상"
+          },
+          {
+            "claim": "HUMAN_CHEMICAL_EXPERT_REVIEW",
+            "status": "NOT_PERFORMED",
+            "basis": "공식자료 자동 감사는 사람 전문가 서명 또는 승인이 아님"
+          }
+        ],
+        "registrySha256": "0373f57cb35194d16db8a1c54cf4ba89d718ea56ea48e3883f24d2afb79f994b",
+        "reviewedAtUtc": "2026-08-01T00:00:00Z",
+        "machineChecked": true,
+        "expertReviewed": false,
+        "humanExpertSubstitute": false,
+        "decisionSupportOnly": true,
+        "limitations": [
+          "공식기관 교차증빙은 사람 화학 전문가의 현장 승인 또는 법적 인증이 아닙니다.",
+          "자료는 위험 메커니즘을 지지하지만 현장 발생확률이나 피해확률을 제공하지 않습니다.",
+          "현장 재고·농도·온도·누출량·실제 혼합·보호구 적합성은 별도 확인이 필요합니다."
+        ]
+      }
+    },
+    "riskDisplayAllowed": true
+  },
+  "riskDisplayAllowed": true,
+  "requiredNextSteps": [
+    "현장 상태와 근거 원문을 재확인하고 지휘관이 최종 판단합니다."
+  ],
+  "provenance": {
+    "modelVersion": "example",
+    "dataVersion": "example",
+    "rulePolicy": "PUBLIC_SOURCE_PILOT_V1",
+    "expertReviewed": false,
+    "finalDecisionAuthority": "현장 지휘관"
+  },
+  "safetyNotice": "위험등급은 확률이 아닌 CAMEO 서수 분류이며 최종 판단은 현장 지휘관이 수행합니다."
+}
