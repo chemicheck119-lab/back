@@ -31,3 +31,7 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.named('bootJar') {
+    archiveFileName = 'c2guard.jar'
+}

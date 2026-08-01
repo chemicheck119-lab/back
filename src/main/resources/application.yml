@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: c2guard
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   jackson:
     deserialization:
       adjust-dates-to-context-time-zone: false
