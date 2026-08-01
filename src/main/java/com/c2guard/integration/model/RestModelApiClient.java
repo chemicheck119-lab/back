@@ -24,6 +24,7 @@ final class RestModelApiClient implements ModelApiClient {
 
     static final String API_KEY_HEADER = "X-API-Key";
     static final String REQUEST_ID_HEADER = "X-Request-Id";
+    static final String INCIDENT_AGENT_SCHEMA = "chemicheck119-incident-agent-v1";
 
     private static final Logger log = LoggerFactory.getLogger(RestModelApiClient.class);
     private static final int RETRY_JITTER_MIN_MILLIS = 50;
@@ -59,49 +60,58 @@ final class RestModelApiClient implements ModelApiClient {
 
     @Override
     public ModelApiResponse resolveSubstances(JsonNode request, String requestId) {
-        return post("/api/v1/substances/resolve", request, requestId, false);
+        return post("/api/v1/substances/resolve", request, requestId, null);
     }
 
     @Override
     public ModelApiResponse discoverSubstances(JsonNode request, String requestId) {
-        return post("/api/v1/substances/discover", request, requestId, true);
+        return post("/api/v1/substances/discover", request, requestId,
+                properties.getSchema());
     }
 
     @Override
     public ModelApiResponse searchEvidence(JsonNode request, String requestId) {
-        return post("/api/v1/evidence/search", request, requestId, false);
+        return post("/api/v1/evidence/search", request, requestId, null);
     }
 
     @Override
     public ModelApiResponse findFacilityCandidates(JsonNode request, String requestId) {
-        return post("/api/v1/facilities/candidates", request, requestId, false);
+        return post("/api/v1/facilities/candidates", request, requestId, null);
     }
 
     @Override
     public ModelApiResponse reviewConflicts(JsonNode request, String requestId) {
-        return post("/api/v1/conflicts/review", request, requestId, false);
+        return post("/api/v1/conflicts/review", request, requestId, null);
     }
 
     @Override
     public ModelApiResponse analyzeIncident(JsonNode request, String requestId) {
-        return post("/api/v1/incidents/analyze", request, requestId, true);
+        return post("/api/v1/incidents/analyze", request, requestId,
+                properties.getSchema());
+    }
+
+    @Override
+    public ModelApiResponse stepIncidentAgent(JsonNode request, String requestId) {
+        return post("/api/v1/agents/incidents/step", request, requestId,
+                INCIDENT_AGENT_SCHEMA);
     }
 
     private ModelApiResponse get(String path, String requestId) {
-        return execute(HttpMethod.GET, path, null, requestId, false, false);
+        return execute(HttpMethod.GET, path, null, requestId, false, null);
     }
 
     private ModelApiResponse post(String path, JsonNode request, String requestId,
-                                  boolean requireSchemaVersion) {
+                                  String expectedSchemaVersion) {
         if (request == null) {
             throw new IllegalArgumentException("Model API request body must not be null");
         }
-        return execute(HttpMethod.POST, path, request, requestId, true, requireSchemaVersion);
+        return execute(HttpMethod.POST, path, request, requestId, true,
+                expectedSchemaVersion);
     }
 
     private ModelApiResponse execute(HttpMethod method, String path, JsonNode request,
                                      String requestedRequestId, boolean authenticated,
-                                     boolean requireSchemaVersion) {
+                                     String expectedSchemaVersion) {
         String requestId = normalizeRequestId(requestedRequestId);
         if (authenticated && !properties.hasApiKey()) {
             throw exception(ModelApiErrorKind.CONFIGURATION, "MODEL_API_KEY_NOT_CONFIGURED",
@@ -113,7 +123,7 @@ final class RestModelApiClient implements ModelApiClient {
             long startedNanos = System.nanoTime();
             try {
                 ModelApiResponse response = exchange(method, path, request, requestId, authenticated);
-                validateSchema(response.body(), requireSchemaVersion, requestId);
+                validateSchema(response.body(), expectedSchemaVersion, requestId);
                 log.debug("model_api_call method={} path={} requestId={} status=success durationMs={} attempt={}",
                         method, path, requestId, elapsedMillis(startedNanos), attempt);
                 return response;
@@ -213,12 +223,13 @@ final class RestModelApiClient implements ModelApiClient {
                 null, requestId, List.of(), error);
     }
 
-    private void validateSchema(JsonNode body, boolean required, String requestId) {
-        if (!required) {
+    private void validateSchema(JsonNode body, String expectedSchemaVersion,
+                                String requestId) {
+        if (expectedSchemaVersion == null) {
             return;
         }
         String actual = textOrDefault(body.path("schema_version"), "");
-        if (!properties.getSchema().equals(actual)) {
+        if (!expectedSchemaVersion.equals(actual)) {
             throw exception(ModelApiErrorKind.CONTRACT, "MODEL_SCHEMA_MISMATCH",
                     "모델 API schema version이 BE 설정과 일치하지 않습니다.", false,
                     422, requestId, List.of("schema_version"), null);

@@ -3,6 +3,19 @@
   "sourcePullRequest": 31,
   "sourceHeadCommit": "2e13178241efece2cd730953d4191f0b9d1a537a",
   "sourceMergeCommit": "e24fa93d538229844af4377976ee5a180c881fb3",
+  "latestAuditedMainCommit": "c4febf23d8ea20ce01a90f2c683ac4667e867d1c",
+  "upstreamChanges": [
+    {
+      "pullRequest": 31,
+      "mergeCommit": "e24fa93d538229844af4377976ee5a180c881fb3",
+      "scope": "dashboard BFF v1 and initial Model API contract"
+    },
+    {
+      "pullRequest": 44,
+      "mergeCommit": "32736a680d445acea158da42efebd87651ce11b2",
+      "scope": "incident agent step and BE-owned external memory contract"
+    }
+  ],
   "importedAt": "2026-08-01",
   "artifacts": [
     {
@@ -18,9 +31,26 @@
     },
     {
       "path": "contracts/upstream/model-api-v1.openapi.json",
-      "sha256": "d54e65cf4b7064a77339d896ce7f62db18045c459e4a0a40c14fc7fa33b288e2",
+      "sha256": "45b6ec745d2c0d10043e811a4198c6de06e93ef622a294e34ccde5dc5ced2e01",
       "upstreamPath": "contracts/generated/model-api-v1.openapi.json",
-      "upstreamSha256": "d54e65cf4b7064a77339d896ce7f62db18045c459e4a0a40c14fc7fa33b288e2",
+      "upstreamSha256": "45b6ec745d2c0d10043e811a4198c6de06e93ef622a294e34ccde5dc5ced2e01",
+      "sourceCommit": "32736a680d445acea158da42efebd87651ce11b2",
+      "localDecisions": []
+    },
+    {
+      "path": "contracts/upstream/model-api-integration-v1.json",
+      "sha256": "54f874074ebbf5cc478bccd7c8a3981b1a2ffd2587abfb5fcb4250d132414891",
+      "upstreamPath": "contracts/model-api-integration-v1.json",
+      "upstreamSha256": "54f874074ebbf5cc478bccd7c8a3981b1a2ffd2587abfb5fcb4250d132414891",
+      "sourceCommit": "32736a680d445acea158da42efebd87651ce11b2",
+      "localDecisions": []
+    },
+    {
+      "path": "contracts/examples/model/incident_agent_step_request.json",
+      "sha256": "56df97194ed76223a171580819614eb221c68b319db983c03b9e94c2c406a743",
+      "upstreamPath": "examples/api/incident_agent_step_request.json",
+      "upstreamSha256": "56df97194ed76223a171580819614eb221c68b319db983c03b9e94c2c406a743",
+      "sourceCommit": "32736a680d445acea158da42efebd87651ce11b2",
       "localDecisions": []
     }
   ]
