@@ -13,11 +13,6 @@ on:
         required: true
         type: boolean
         default: true
-      use_external_database:
-        description: 승인된 외부 PostgreSQL secret을 사용합니다
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -60,6 +55,9 @@ jobs:
           GCP_DATABASE_USERNAME_SECRET_VERSION: ${{ vars.GCP_DATABASE_USERNAME_SECRET_VERSION }}
           GCP_DATABASE_PASSWORD_SECRET: ${{ vars.GCP_DATABASE_PASSWORD_SECRET }}
           GCP_DATABASE_PASSWORD_SECRET_VERSION: ${{ vars.GCP_DATABASE_PASSWORD_SECRET_VERSION }}
+          GCP_VPC_NETWORK: ${{ vars.GCP_VPC_NETWORK }}
+          GCP_VPC_SUBNETWORK: ${{ vars.GCP_VPC_SUBNETWORK }}
+          GCP_VPC_EGRESS: ${{ vars.GCP_VPC_EGRESS }}
           GCP_CORS_ALLOWED_ORIGINS: ${{ vars.GCP_CORS_ALLOWED_ORIGINS }}
           GCP_STAGING_AUTH_CALLBACK_URL: ${{ vars.GCP_STAGING_AUTH_CALLBACK_URL }}
           GCP_STAGING_AUTH_USER_ID: ${{ vars.GCP_STAGING_AUTH_USER_ID }}
@@ -68,7 +66,7 @@ jobs:
           GCP_STAGING_AUTH_PASSWORD_SECRET: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET }}
           GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION }}
           GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
-          GCP_REQUIRE_EXTERNAL_DATABASE: ${{ inputs.use_external_database }}
+          GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: "false"
         run: |
           set -euo pipefail
@@ -112,7 +110,10 @@ jobs:
               GCP_DATABASE_USERNAME_SECRET \
               GCP_DATABASE_USERNAME_SECRET_VERSION \
               GCP_DATABASE_PASSWORD_SECRET \
-              GCP_DATABASE_PASSWORD_SECRET_VERSION
+              GCP_DATABASE_PASSWORD_SECRET_VERSION \
+              GCP_VPC_NETWORK \
+              GCP_VPC_SUBNETWORK \
+              GCP_VPC_EGRESS
             do
               test -n "${!name:-}" || {
                 echo "Missing required external database variable: $name"
@@ -122,6 +123,9 @@ jobs:
             [[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
             [[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
             [[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+            [[ "$GCP_VPC_NETWORK" =~ ^[a-z][a-z0-9-]{0,62}$ ]]
+            [[ "$GCP_VPC_SUBNETWORK" =~ ^[a-z][a-z0-9-]{0,62}$ ]]
+            test "$GCP_VPC_EGRESS" = "private-ranges-only"
           fi
 
       - name: Run backend tests
@@ -190,6 +194,9 @@ jobs:
           GCP_DATABASE_USERNAME_SECRET_VERSION: ${{ vars.GCP_DATABASE_USERNAME_SECRET_VERSION }}
           GCP_DATABASE_PASSWORD_SECRET: ${{ vars.GCP_DATABASE_PASSWORD_SECRET }}
           GCP_DATABASE_PASSWORD_SECRET_VERSION: ${{ vars.GCP_DATABASE_PASSWORD_SECRET_VERSION }}
+          GCP_VPC_NETWORK: ${{ vars.GCP_VPC_NETWORK }}
+          GCP_VPC_SUBNETWORK: ${{ vars.GCP_VPC_SUBNETWORK }}
+          GCP_VPC_EGRESS: ${{ vars.GCP_VPC_EGRESS }}
           GCP_STAGING_AUTH_CALLBACK_URL: ${{ vars.GCP_STAGING_AUTH_CALLBACK_URL }}
           GCP_STAGING_AUTH_USER_ID: ${{ vars.GCP_STAGING_AUTH_USER_ID }}
           GCP_STAGING_AUTH_STATION_ID: ${{ vars.GCP_STAGING_AUTH_STATION_ID }}
@@ -200,7 +207,7 @@ jobs:
           GCP_MIN_INSTANCES: ${{ vars.GCP_MIN_INSTANCES }}
           GCP_MAX_INSTANCES: ${{ vars.GCP_MAX_INSTANCES }}
           GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
-          GCP_REQUIRE_EXTERNAL_DATABASE: ${{ inputs.use_external_database }}
+          GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: "false"
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
@@ -217,8 +224,8 @@ jobs:
             echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
             echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
             echo "- Public analysis: \`${{ inputs.public_analysis_enabled }}\`"
-            echo "- External database: \`${{ inputs.use_external_database }}\`"
+            echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo
-            echo "> External database=false is a temporary E2E mode; Cloud Run restart loses stored incident state."
+            echo "> Staging deployments require the approved PostgreSQL secrets and Direct VPC egress."
           } >> "$GITHUB_STEP_SUMMARY"
