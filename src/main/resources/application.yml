@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: c2guard
+  jackson:
+    deserialization:
+      adjust-dates-to-context-time-zone: false
 
 # 한글 응답이 깨지지 않도록 명시
   http:

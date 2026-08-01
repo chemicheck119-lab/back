@@ -49,11 +49,14 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 - `docs/INCIDENT_ANALYSIS_BFF.md`
 - `docs/SUBSTANCE_DISCOVERY_BFF.md`
 - `docs/BFF_SECURITY.md`
+- `docs/CONFIRMATION_GATE.md`
 
 현재 `POST /api/c2guard/v1/incidents/analyze`는 FE 요청을 Model API 요청으로 변환하고,
 모델 응답을 확인 gate가 적용된 화면 DTO로 투영합니다. 모든 `/api/**` 요청은 서명된
 `CHEMICHECK119_SESSION` cookie를 요구하며 BFF 사고 경로는 session의 incident scope를
-검사합니다. 현장 confirmation 저장(#6)이 병합되기 전에는 운영 공개하지 않습니다.
+검사합니다. 현장 confirmation은 인증 사용자 기준 append-only revision으로 저장되며 다음
+사고분석 호출에 같은 incident의 활성 확인만 주입합니다. 영구 저장(#9), 검증된 AI runtime과
+배포 인증 adapter가 준비되기 전에는 운영 공개하지 않습니다.
 
 `POST /api/c2guard/v1/substances/discover`는 FE 관찰·물질명 검색을 Model API 후보 검색으로
 연결하며, 후보 없음·근거 미적재·현장 확인 필요 상태를 그대로 보존합니다.
