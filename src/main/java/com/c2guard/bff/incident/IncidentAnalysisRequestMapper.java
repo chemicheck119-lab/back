@@ -1,5 +1,7 @@
 package com.c2guard.bff.incident;
 
+import com.c2guard.bff.confirmation.ConfirmationRole;
+import com.c2guard.bff.confirmation.SubstanceConfirmation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -7,10 +9,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
 class IncidentAnalysisRequestMapper {
+
+    private static final DateTimeFormatter MODEL_TIME =
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final ObjectMapper objectMapper;
 
@@ -44,6 +51,30 @@ class IncidentAnalysisRequestMapper {
                 plannedActions.addObject().put("raw_text", action));
         target.put("evidence_top_k", source.evidenceTopK());
         return new PreparedIncidentAnalysis(incidentId, target);
+    }
+
+    void addActiveConfirmations(ObjectNode target,
+                                Map<ConfirmationRole, SubstanceConfirmation> confirmations) {
+        SubstanceConfirmation incident = confirmations.get(ConfirmationRole.INCIDENT);
+        if (incident != null) {
+            target.set("confirmed_incident_substance", mapConfirmation(incident));
+        }
+        SubstanceConfirmation facility = confirmations.get(ConfirmationRole.FACILITY);
+        if (facility != null) {
+            target.set("confirmed_facility_substance", mapConfirmation(facility));
+        }
+    }
+
+    private ObjectNode mapConfirmation(SubstanceConfirmation source) {
+        ObjectNode target = objectMapper.createObjectNode();
+        target.put("confirmation_id", source.confirmationId());
+        target.put("cas_number", source.casNumber());
+        putNullable(target, "display_name", source.displayName());
+        target.put("role", source.role().name());
+        target.put("presence_status", "CONFIRMED_PRESENT");
+        target.put("confirmation_basis", source.confirmationBasis().name());
+        target.put("observed_at", MODEL_TIME.format(source.observedAt()));
+        return target;
     }
 
     private ObjectNode mapLocation(IncidentAnalyzeRequest.IncidentLocation source) {

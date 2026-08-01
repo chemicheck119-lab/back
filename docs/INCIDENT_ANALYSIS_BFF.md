@@ -5,14 +5,16 @@ FE는 `POST /api/c2guard/v1/incidents/analyze`만 호출하고 AI `/api/v1/**` �
 
 1. FE의 `X-Request-Id`를 검증하거나 새 ID를 생성한다.
 2. BFF camelCase 요청을 검증하고 Model API snake_case 요청으로 변환한다.
-3. 같은 request ID와 서버 API key로 Model API를 호출한다.
-4. 모델 응답의 schema, request ID, incident ID와 confirmation gate를 검사한다.
-5. 확인 전 위험 필드를 만들지 않고 BFF 화면 DTO로 투영한다.
-6. AI 원본과 화면 DTO snapshot을 analysis ID로 보존한 뒤 FE에 반환한다.
+3. 같은 incident의 활성 confirmation을 서버 저장소에서 조회해 확인 객체로 추가한다.
+4. 같은 request ID와 서버 API key로 Model API를 호출한다.
+5. 모델 응답의 schema, request ID, incident ID와 confirmation gate를 검사한다.
+6. 확인 전 위험 필드를 만들지 않고 BFF 화면 DTO로 투영한다.
+7. AI 원본과 화면 DTO snapshot을 analysis ID로 보존한 뒤 FE에 반환한다.
 
 현재 snapshot 저장소는 #9의 영구 DB 전환 전까지 프로세스 메모리를 사용한다. 서버 재시작
-후 보존되는 기록으로 간주하면 안 된다. 현장 confirmation은 #6, 사용자 세션과 사고 접근
-권한은 #5에서 연결한다. 따라서 두 이슈가 병합되기 전 이 endpoint를 운영 공개하지 않는다.
+후 보존되는 기록으로 간주하면 안 된다. 현장 confirmation도 #9의 DB 전환 전까지 같은
+제약을 가지며, 재시작 시 저장소가 비어 Rule gate가 다시 잠긴다. 세부 정책은
+`docs/CONFIRMATION_GATE.md`를 따른다.
 
 ## 오류 매핑
 

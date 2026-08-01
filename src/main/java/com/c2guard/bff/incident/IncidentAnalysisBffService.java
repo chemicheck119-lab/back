@@ -1,6 +1,7 @@
 package com.c2guard.bff.incident;
 
 import com.c2guard.bff.common.BffContractException;
+import com.c2guard.bff.confirmation.ConfirmationStore;
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiResponse;
 import com.c2guard.security.BffUserPrincipal;
@@ -17,23 +18,28 @@ public class IncidentAnalysisBffService {
     private final IncidentAnalysisProjector projector;
     private final IncidentAnalysisSnapshotStore snapshotStore;
     private final IncidentAccessPolicy incidentAccessPolicy;
+    private final ConfirmationStore confirmationStore;
 
     public IncidentAnalysisBffService(ModelApiClient modelApiClient,
                                       IncidentAnalysisRequestMapper requestMapper,
                                       IncidentAnalysisProjector projector,
                                       IncidentAnalysisSnapshotStore snapshotStore,
-                                      IncidentAccessPolicy incidentAccessPolicy) {
+                                      IncidentAccessPolicy incidentAccessPolicy,
+                                      ConfirmationStore confirmationStore) {
         this.modelApiClient = modelApiClient;
         this.requestMapper = requestMapper;
         this.projector = projector;
         this.snapshotStore = snapshotStore;
         this.incidentAccessPolicy = incidentAccessPolicy;
+        this.confirmationStore = confirmationStore;
     }
 
     public JsonNode analyze(IncidentAnalyzeRequest request, String requestId,
                             BffUserPrincipal principal) {
         incidentAccessPolicy.requireAnalyze(principal, request.incidentId());
         PreparedIncidentAnalysis prepared = requestMapper.prepare(request, requestId);
+        requestMapper.addActiveConfirmations(prepared.modelRequest(),
+                confirmationStore.findActiveForIncident(prepared.incidentId()));
         ModelApiResponse modelResponse = modelApiClient.analyzeIncident(
                 prepared.modelRequest(), requestId);
         if (!requestId.equals(modelResponse.requestId())) {

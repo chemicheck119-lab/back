@@ -32,6 +32,12 @@ public class IncidentAccessPolicy {
         }
     }
 
+    public void requireAccess(BffUserPrincipal principal, String incidentId) {
+        if (!canAccess(principal, incidentId)) {
+            throw new AccessDeniedException("incident access denied");
+        }
+    }
+
     private boolean hasOperationalRole(BffUserPrincipal principal) {
         return principal.roles().stream().anyMatch(OPERATIONAL_ROLES::contains);
     }
