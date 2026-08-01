@@ -40,6 +40,18 @@ chemicheck119:
     cookie-secure: ${CHEMICHECK119_SESSION_COOKIE_SECURE:true}
     cookie-same-site: ${CHEMICHECK119_SESSION_COOKIE_SAME_SITE:Lax}
     allowed-origins: ${CHEMICHECK119_CORS_ALLOWED_ORIGINS:}
+  staging-auth:
+    enabled: ${CHEMICHECK119_STAGING_AUTH_ENABLED:false}
+    callback-url: ${CHEMICHECK119_STAGING_AUTH_CALLBACK_URL:}
+    user-id: ${CHEMICHECK119_STAGING_AUTH_USER_ID:}
+    station-id: ${CHEMICHECK119_STAGING_AUTH_STATION_ID:}
+    station-display-name: ${CHEMICHECK119_STAGING_AUTH_STATION_DISPLAY_NAME:}
+    password: ${CHEMICHECK119_STAGING_AUTH_PASSWORD:}
+    roles: ${CHEMICHECK119_STAGING_AUTH_ROLES:RESPONDER}
+    incident-scopes: ${CHEMICHECK119_STAGING_AUTH_INCIDENT_SCOPES:*}
+    csrf-max-age: ${CHEMICHECK119_STAGING_AUTH_CSRF_MAX_AGE:5m}
+    lock-duration: ${CHEMICHECK119_STAGING_AUTH_LOCK_DURATION:10m}
+    max-failed-attempts: ${CHEMICHECK119_STAGING_AUTH_MAX_FAILED_ATTEMPTS:5}
   model-api:
     base-url: ${CHEMICHECK119_MODEL_API_BASE_URL:http://localhost:8000}
     api-key: ${CHEMICHECK119_MODEL_API_KEY:}
@@ -62,7 +74,7 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,modelApi,bffSecurity,db,persistence
+          include: readinessState,modelApi,bffSecurity,stagingAuth,db,persistence
   endpoints:
     web:
       exposure:

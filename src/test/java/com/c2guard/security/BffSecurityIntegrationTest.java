@@ -126,4 +126,14 @@ class BffSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
     }
+
+    @Test
+    void protectsSessionContextAndLogoutWithoutASession() throws Exception {
+        mockMvc.perform(get("/api/c2guard/v1/session"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+        mockMvc.perform(post("/api/c2guard/v1/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+    }
 }

@@ -20,13 +20,14 @@
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "aff24d594f32bd4c33df5980db9dd1148b556d0d9d3c6ffe468a1db63a156ac4",
+      "sha256": "dd9cd13ef280d873b4f7000380352c364ef0427a1020e42114d5faaba8e60763",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
         "AI-backed analyze and discover timeouts use HTTP 504 with MODEL_TIMEOUT",
         "Model API connect timeout is 2 seconds",
-        "Model API response timeout is 15 seconds"
+        "Model API response timeout is 15 seconds",
+        "BE-owned authenticated session context and logout routes are published"
       ]
     },
     {

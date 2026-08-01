@@ -19,6 +19,8 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 
 | 목적 | FE → BE | BE의 하위 의존성 | 성공 |
 |---|---|---|---|
+| 세션확인 | `GET /api/c2guard/v1/session` | 서명 session cookie | 200 |
+| 로그아웃 | `POST /api/c2guard/v1/logout` | session cookie 만료 | 204 |
 | 사고분석 | `POST /api/c2guard/v1/incidents/analyze` | Model API `/api/v1/incidents/analyze` | 200 |
 | 물질발견 | `POST /api/c2guard/v1/substances/discover` | Model API `/api/v1/substances/discover` | 200 |
 | 현장확인 | `POST /api/c2guard/v1/incidents/{incidentId}/confirmations` | BE 확인 저장소 | 201 |

@@ -43,7 +43,13 @@ Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정 버�
 | `GCP_DATABASE_USERNAME_SECRET_VERSION` | 고정 secret version |
 | `GCP_DATABASE_PASSWORD_SECRET` | DB 비밀번호 secret 이름 |
 | `GCP_DATABASE_PASSWORD_SECRET_VERSION` | 고정 secret version |
-| `GCP_CORS_ALLOWED_ORIGINS` | 실제 HTTPS FE origin, 확정 전에는 미등록 |
+| `GCP_CORS_ALLOWED_ORIGINS` | `https://chemicheck119.site` |
+| `GCP_STAGING_AUTH_CALLBACK_URL` | `https://chemicheck119.site` 또는 승인된 callback path |
+| `GCP_STAGING_AUTH_USER_ID` | 합성 staging 계정 ID |
+| `GCP_STAGING_AUTH_STATION_ID` | 변경하지 않는 합성 station ID |
+| `GCP_STAGING_AUTH_STATION_DISPLAY_NAME` | 화면 표시용 합성 소방서명 |
+| `GCP_STAGING_AUTH_PASSWORD_SECRET` | staging password secret 이름 |
+| `GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION` | 고정 secret version |
 | `GCP_MIN_INSTANCES` | `0` |
 | `GCP_MAX_INSTANCES` | `1` |
 
@@ -59,7 +65,8 @@ Actions에서 `Backend Cloud Run staging deployment`를 `develop` ref로 선택�
 2. commit SHA를 OCI revision label로 포함한 non-root 이미지 빌드
 3. Artifact Registry push 후 `image@sha256` digest 확정
 4. 새 Cloud Run revision을 `--no-traffic` candidate tag로 배포
-5. candidate URL에서 PostgreSQL·AI·세션 readiness, liveness, 익명 API 차단 검사
+5. candidate URL에서 PostgreSQL·AI·세션·staging auth readiness, 로그인 시작 페이지,
+   liveness, 익명 API 차단 검사
 6. 새 revision으로 트래픽 100% 원자 전환
 7. stable URL 재검사; 실패하면 직전 revision으로 자동 롤백
 

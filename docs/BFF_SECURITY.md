@@ -3,9 +3,10 @@
 ## 결정
 
 BE는 브라우저의 `CHEMICHECK119_SESSION` HttpOnly cookie에 담긴 HS256 JWT를 검증합니다.
-FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니다. 세션 발급 진입점은 배포
-환경의 신뢰된 인증 adapter가 소유하며, 이 저장소는 서명·검증 서비스와 모든 API의 강제 경계를
-제공합니다.
+FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니다. 운영 세션 발급 진입점은
+배포 환경의 신뢰된 인증 adapter가 소유합니다. 별도 인증 시스템이 준비되기 전 staging에는 기본
+비활성화된 합성 테스트 계정 adapter를 사용할 수 있습니다. 운영 환경에서는 이를 활성화하지
+않습니다.
 
 세션 payload는 다음 claim을 사용합니다.
 
@@ -14,6 +15,7 @@ FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니�
 | `iss`, `aud` | 허용된 발급자와 이 BFF audience |
 | `sub` | 사용자 ID |
 | `org` | 소속 ID |
+| `station_name` | 화면에 표시할 신뢰된 소방서 이름 |
 | `roles` | `RESPONDER`, `COMMANDER`, `ADMIN` |
 | `incidents` | 접근 가능한 incident ID 목록 또는 발급자가 승인한 `*` scope |
 | `jti`, `iat`, `exp` | session ID, 발급 시각, 만료 시각 |
@@ -25,6 +27,8 @@ FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니�
 
 ## HTTP 계약
 
+- `GET /api/c2guard/v1/session`: 인증 사용자·고정 station ID·표시명·역할·사고 scope·만료 반환
+- `POST /api/c2guard/v1/logout`: `CHEMICHECK119_SESSION`을 `Max-Age=0`으로 만료
 - 인증 누락·서명 변조·만료·issuer/audience 불일치: HTTP 401, `AUTH_REQUIRED`
 - 인증 성공 후 incident scope 부족: HTTP 403, `ACCESS_DENIED`
 - 두 오류 모두 `chemicheck119-dashboard-bff-v1`, 동일 request ID,
@@ -73,6 +77,9 @@ cookie가 전달됩니다.
 | `CHEMICHECK119_SESSION_COOKIE_SECURE` | `true` | 운영 HTTPS cookie 강제 |
 | `CHEMICHECK119_SESSION_COOKIE_SAME_SITE` | `Lax` | `Lax`, `Strict`, `None` |
 | `CHEMICHECK119_CORS_ALLOWED_ORIGINS` | 없음 | 운영 FE origin allowlist |
+
+staging adapter 설정과 로그인 URL은
+[`STAGING_AUTH_ADAPTER.md`](./STAGING_AUTH_ADAPTER.md)를 기준으로 합니다.
 
 Secret 교체 시 기존 session은 모두 무효화됩니다. 즉시 사용자별 폐기가 필요한 환경에서는
 신뢰된 인증 adapter가 짧은 만료와 별도의 revocation 정책을 함께 제공해야 합니다.

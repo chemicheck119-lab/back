@@ -50,6 +50,13 @@ jobs:
           GCP_DATABASE_USERNAME_SECRET_VERSION: ${{ vars.GCP_DATABASE_USERNAME_SECRET_VERSION }}
           GCP_DATABASE_PASSWORD_SECRET: ${{ vars.GCP_DATABASE_PASSWORD_SECRET }}
           GCP_DATABASE_PASSWORD_SECRET_VERSION: ${{ vars.GCP_DATABASE_PASSWORD_SECRET_VERSION }}
+          GCP_CORS_ALLOWED_ORIGINS: ${{ vars.GCP_CORS_ALLOWED_ORIGINS }}
+          GCP_STAGING_AUTH_CALLBACK_URL: ${{ vars.GCP_STAGING_AUTH_CALLBACK_URL }}
+          GCP_STAGING_AUTH_USER_ID: ${{ vars.GCP_STAGING_AUTH_USER_ID }}
+          GCP_STAGING_AUTH_STATION_ID: ${{ vars.GCP_STAGING_AUTH_STATION_ID }}
+          GCP_STAGING_AUTH_STATION_DISPLAY_NAME: ${{ vars.GCP_STAGING_AUTH_STATION_DISPLAY_NAME }}
+          GCP_STAGING_AUTH_PASSWORD_SECRET: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET }}
+          GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -72,7 +79,14 @@ jobs:
             GCP_DATABASE_USERNAME_SECRET \
             GCP_DATABASE_USERNAME_SECRET_VERSION \
             GCP_DATABASE_PASSWORD_SECRET \
-            GCP_DATABASE_PASSWORD_SECRET_VERSION
+            GCP_DATABASE_PASSWORD_SECRET_VERSION \
+            GCP_CORS_ALLOWED_ORIGINS \
+            GCP_STAGING_AUTH_CALLBACK_URL \
+            GCP_STAGING_AUTH_USER_ID \
+            GCP_STAGING_AUTH_STATION_ID \
+            GCP_STAGING_AUTH_STATION_DISPLAY_NAME \
+            GCP_STAGING_AUTH_PASSWORD_SECRET \
+            GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION
           do
             test -n "${!name:-}" || {
               echo "Missing required GitHub repository variable: $name"
@@ -85,7 +99,12 @@ jobs:
           [[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
+          test "$GCP_CORS_ALLOWED_ORIGINS" = "https://chemicheck119.site"
+          [[ "$GCP_STAGING_AUTH_CALLBACK_URL" =~ ^https://chemicheck119\.site(/[^[:space:]]*)?$ ]]
+          [[ "$GCP_STAGING_AUTH_USER_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
+          [[ "$GCP_STAGING_AUTH_STATION_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
 
       - name: Run backend tests
         run: ./gradlew clean test --no-daemon --console=plain
@@ -153,6 +172,12 @@ jobs:
           GCP_DATABASE_USERNAME_SECRET_VERSION: ${{ vars.GCP_DATABASE_USERNAME_SECRET_VERSION }}
           GCP_DATABASE_PASSWORD_SECRET: ${{ vars.GCP_DATABASE_PASSWORD_SECRET }}
           GCP_DATABASE_PASSWORD_SECRET_VERSION: ${{ vars.GCP_DATABASE_PASSWORD_SECRET_VERSION }}
+          GCP_STAGING_AUTH_CALLBACK_URL: ${{ vars.GCP_STAGING_AUTH_CALLBACK_URL }}
+          GCP_STAGING_AUTH_USER_ID: ${{ vars.GCP_STAGING_AUTH_USER_ID }}
+          GCP_STAGING_AUTH_STATION_ID: ${{ vars.GCP_STAGING_AUTH_STATION_ID }}
+          GCP_STAGING_AUTH_STATION_DISPLAY_NAME: ${{ vars.GCP_STAGING_AUTH_STATION_DISPLAY_NAME }}
+          GCP_STAGING_AUTH_PASSWORD_SECRET: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET }}
+          GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION }}
           GCP_CORS_ALLOWED_ORIGINS: ${{ vars.GCP_CORS_ALLOWED_ORIGINS }}
           GCP_MIN_INSTANCES: ${{ vars.GCP_MIN_INSTANCES }}
           GCP_MAX_INSTANCES: ${{ vars.GCP_MAX_INSTANCES }}
@@ -170,6 +195,7 @@ jobs:
             echo "- Image: \`${{ steps.image.outputs.image_digest }}\`"
             echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
             echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
+            echo "- Login: \`${{ steps.deploy.outputs.service_url }}/auth/staging/login\`"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo
             echo "> This workflow is staging-only and requires an approved external PostgreSQL database."
