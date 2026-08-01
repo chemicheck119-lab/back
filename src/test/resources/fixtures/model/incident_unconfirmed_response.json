@@ -1,0 +1,131 @@
+{
+  "schema_version": "chemiguard119-api-v1",
+  "analysis_id": "ANL-EXAMPLE-0001",
+  "request_id": "REQ-EXAMPLE-0001",
+  "incident_id": "INC-EXAMPLE-0001",
+  "state": "AWAITING_SUBSTANCE_CONFIRMATION",
+  "input_fingerprint": "08b0fed9c94ce9bee9d078669f309c6dbbf385996dcce61b8286025713ddc0cf",
+  "model_outputs": {
+    "pipeline_schema_version": "incident-analysis-v1",
+    "parser": {
+      "backend": "DETERMINISTIC_BASELINE",
+      "incident_types": [
+        "LEAK"
+      ],
+      "fire_status": "UNKNOWN",
+      "substance_mentions": [
+        {
+          "surface_text": "차아염소산나트륨",
+          "role": "INCIDENT",
+          "assertion": "AFFIRMED"
+        },
+        {
+          "surface_text": "염산",
+          "role": "FACILITY",
+          "assertion": "AFFIRMED"
+        }
+      ],
+      "planned_actions": [],
+      "needs_substance_confirmation": true,
+      "missing_fields": [],
+      "warning": "결정적 기준선도 대원 확인 전 물질을 확정하지 않습니다."
+    },
+    "substance_candidates": [
+      {
+        "surface_text": "차아염소산나트륨",
+        "role": "INCIDENT",
+        "assertion": "AFFIRMED",
+        "resolver_status": "EXACT_ALIAS_CANDIDATE",
+        "evidence_cas_hint": "7681-52-9",
+        "requires_responder_confirmation": true,
+        "matches_confirmed_cas": false,
+        "candidates": [
+          {
+            "cas_number": "7681-52-9",
+            "score": 1.0,
+            "rule_eligible": false,
+            "current_inventory_confirmed": false
+          }
+        ]
+      },
+      {
+        "surface_text": "염산",
+        "role": "FACILITY",
+        "assertion": "AFFIRMED",
+        "resolver_status": "EXACT_ALIAS_CANDIDATE",
+        "evidence_cas_hint": "7647-01-0",
+        "requires_responder_confirmation": true,
+        "matches_confirmed_cas": false,
+        "candidates": [
+          {
+            "cas_number": "7647-01-0",
+            "score": 1.0,
+            "rule_eligible": false,
+            "current_inventory_confirmed": false
+          }
+        ]
+      }
+    ],
+    "candidate_score_notice": "후보 점수는 이름 유사도·정렬값이며 사고확률, 위험확률 또는 Rule 실행 권한이 아닙니다.",
+    "output_validation": {
+      "status": "PASSED",
+      "errors": []
+    },
+    "facility_history_candidates": {
+      "status": "NO_HISTORY_MATCH",
+      "warning": "시설 후보는 과거 신고·취급 이력이며 현재 재고를 의미하지 않습니다.",
+      "results": []
+    }
+  },
+  "evidence": [],
+  "grounded_rag": {
+    "schema_version": "chemicheck119-grounded-rag-v1",
+    "status": "NOT_RUN_REQUIRES_CONFIRMED_PAIR",
+    "mode": "extractive",
+    "used_llm": false,
+    "model": null,
+    "statements": [],
+    "citations": [],
+    "citation_validation": {
+      "passed": true,
+      "unknown_source_ids": []
+    },
+    "risk_decision_source": "DETERMINISTIC_CAMEO_RULE_ENGINE",
+    "semantic_grounding_verified": false,
+    "fallback_reason": null,
+    "latency_ms": 0.0,
+    "limitations": [
+      "LLM은 위험등급을 결정하지 않습니다.",
+      "인용 ID 검증은 문장의 과학적 의미까지 보증하지 않습니다."
+    ]
+  },
+  "conflict_review": {
+    "executed": false,
+    "status": "NOT_RUN_REQUIRES_TWO_CONFIRMED_CAS",
+    "gate": "BOTH_CAS_RESPONDER_CONFIRMED",
+    "missing_confirmations": [
+      "incident_cas",
+      "facility_cas"
+    ],
+    "reason": "사고물질과 시설물질 CAS의 현장 확인이 모두 필요합니다."
+  },
+  "confirmation_gate": {
+    "policy": "TWO_AUTHENTICATED_ON_SITE_CONFIRMATIONS_REQUIRED",
+    "incident_confirmed": false,
+    "facility_confirmed": false,
+    "all_required_confirmed": false,
+    "rule_execution_allowed": false
+  },
+  "required_next_steps": [
+    "인증된 대원이 사고물질 CAS를 확인해 백엔드 confirmation_id를 생성합니다.",
+    "시설물질의 현재 존재와 CAS를 확인해 백엔드 confirmation_id를 생성합니다."
+  ],
+  "provenance": {
+    "model_version": "example",
+    "data_version": "example",
+    "rule_policy": "PUBLIC_SOURCE_PILOT_V1",
+    "expert_reviewed": false,
+    "final_decision_authority": "현장 지휘관"
+  },
+  "safety_notice": "후보와 이력은 확인 전 충돌 판정에 사용할 수 없으며 최종 판단은 현장 지휘관이 수행합니다."
+}
