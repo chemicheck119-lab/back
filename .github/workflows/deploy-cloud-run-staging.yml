@@ -84,6 +84,8 @@ jobs:
 
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: "578.0.0"
 
       - name: Build and push immutable backend image
         id: image
