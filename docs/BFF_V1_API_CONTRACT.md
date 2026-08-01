@@ -105,6 +105,9 @@ E2E가 승인되고 FE가 v1으로 전환된 다음 한 번의 안정화 릴리�
 `Link` header를 추가합니다. 실제 제거는 #11 스테이징 승인과 별도 release decision 후에만
 진행합니다.
 
+현재 구현된 레거시 경로는 공통 filter에서 `Deprecation: true`와 이 문서의 `develop` URL을
+반환합니다. `Sunset`은 실제 제거 릴리스가 승인되기 전까지 설정하지 않습니다.
+
 ## 7. 계약 갱신과 검증
 
 1. AI `main`의 새 commit과 PR을 확인합니다.
