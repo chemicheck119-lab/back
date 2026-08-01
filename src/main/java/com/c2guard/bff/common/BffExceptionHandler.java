@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -58,6 +59,13 @@ public class BffExceptionHandler {
                 "MODEL_SERVICE_UNAVAILABLE",
                 "모델 서비스가 준비되지 않았습니다. 저장된 현장 정보는 유지됩니다.",
                 retryable);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<DashboardErrorResponse> accessDenied(AccessDeniedException error,
+                                                         HttpServletRequest request) {
+        return response(HttpStatus.FORBIDDEN, request, "ACCESS_DENIED",
+                "이 사고 또는 기능에 접근할 권한이 없습니다.", false);
     }
 
     @ExceptionHandler(Exception.class)

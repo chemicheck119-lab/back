@@ -1,0 +1,3 @@
+chemicheck119:
+  bff-security:
+    session-secret: test-only-session-secret-at-least-32-bytes-long

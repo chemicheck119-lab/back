@@ -2,6 +2,7 @@ package com.c2guard.bff.substance;
 
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiResponse;
+import com.c2guard.security.SignedSessionTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static com.c2guard.security.BffTestSession.responder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -39,6 +41,9 @@ class SubstanceDiscoveryControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private SignedSessionTokenService tokenService;
 
     @MockBean
     private ModelApiClient modelApiClient;
@@ -53,6 +58,7 @@ class SubstanceDiscoveryControllerTest {
                 .thenReturn(new ModelApiResponse(requestId, model));
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(Files.readString(Path.of(
@@ -72,6 +78,7 @@ class SubstanceDiscoveryControllerTest {
         String requestId = "REQ-BFF-DISCOVERY-INVALID";
 
         mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
                         .header("X-Request-Id", requestId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"염\"}"))

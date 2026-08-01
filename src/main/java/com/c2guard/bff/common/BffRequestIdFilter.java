@@ -25,7 +25,7 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/c2guard/v1/");
+        return !request.getRequestURI().startsWith("/api/");
     }
 
     @Override
