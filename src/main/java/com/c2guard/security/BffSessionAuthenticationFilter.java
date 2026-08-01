@@ -8,8 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,13 +27,16 @@ public class BffSessionAuthenticationFilter extends OncePerRequestFilter {
 
     private final SignedSessionTokenService tokenService;
     private final BffSecurityProperties properties;
+    private final BffSessionCookieService cookieService;
     private final Clock clock;
 
     public BffSessionAuthenticationFilter(SignedSessionTokenService tokenService,
                                           BffSecurityProperties properties,
+                                          BffSessionCookieService cookieService,
                                           Clock clock) {
         this.tokenService = tokenService;
         this.properties = properties;
+        this.cookieService = cookieService;
         this.clock = clock;
     }
 
@@ -85,22 +86,10 @@ public class BffSessionAuthenticationFilter extends OncePerRequestFilter {
         if (remaining.isNegative()) {
             remaining = Duration.ZERO;
         }
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookie(token, remaining).toString());
+        cookieService.issue(response, token, remaining);
     }
 
     private void expireCookie(HttpServletResponse response) {
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                cookie("", Duration.ZERO).toString());
-    }
-
-    private ResponseCookie cookie(String value, Duration maxAge) {
-        return ResponseCookie.from(properties.getCookieName(), value)
-                .httpOnly(true)
-                .secure(properties.isCookieSecure())
-                .sameSite(properties.getCookieSameSite())
-                .path("/")
-                .maxAge(maxAge)
-                .build();
+        cookieService.expire(response);
     }
 }

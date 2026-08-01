@@ -45,11 +45,17 @@ public class SignedSessionTokenService {
 
     public String issue(String userId, String organizationId, Set<BffRole> roles,
                         Set<String> incidentScopes) {
+        return issue(userId, organizationId, organizationId, roles, incidentScopes);
+    }
+
+    public String issue(String userId, String organizationId, String stationDisplayName,
+                        Set<BffRole> roles, Set<String> incidentScopes) {
         if (!properties.hasValidSessionSecret() || !properties.hasSafeCookiePolicy()) {
             throw new IllegalStateException("service session 보안 설정이 준비되지 않았습니다.");
         }
         validateSubject(userId);
         validateSubject(organizationId);
+        validateStationDisplayName(stationDisplayName);
         validateRoles(roles);
         validateIncidentScopes(incidentScopes);
 
@@ -65,6 +71,7 @@ public class SignedSessionTokenService {
         payload.put("aud", properties.getAudience());
         payload.put("sub", userId);
         payload.put("org", organizationId);
+        payload.put("station_name", stationDisplayName);
         payload.put("jti", UUID.randomUUID().toString());
         payload.put("iat", issuedAt.getEpochSecond());
         payload.put("exp", expiresAt.getEpochSecond());
@@ -114,9 +121,12 @@ public class SignedSessionTokenService {
 
             String userId = requiredText(payload, "sub");
             String organizationId = requiredText(payload, "org");
+            String stationDisplayName = payload.path("station_name").isTextual()
+                    ? payload.path("station_name").textValue() : organizationId;
             String sessionId = requiredText(payload, "jti");
             validateSubject(userId);
             validateSubject(organizationId);
+            validateStationDisplayName(stationDisplayName);
             if (!SUBJECT.matcher(sessionId).matches()) {
                 throw new SessionTokenException();
             }
@@ -129,8 +139,8 @@ public class SignedSessionTokenService {
 
             Set<BffRole> roles = parseRoles(payload.path("roles"));
             Set<String> incidentScopes = parseIncidentScopes(payload.path("incidents"));
-            return new BffUserPrincipal(userId, organizationId, roles, incidentScopes,
-                    sessionId, issuedAt, expiresAt);
+            return new BffUserPrincipal(userId, organizationId, stationDisplayName,
+                    roles, incidentScopes, sessionId, issuedAt, expiresAt);
         } catch (SessionTokenException error) {
             throw error;
         } catch (Exception error) {
@@ -194,6 +204,13 @@ public class SignedSessionTokenService {
 
     private void validateSubject(String value) {
         if (value == null || !SUBJECT.matcher(value).matches()) {
+            throw new SessionTokenException();
+        }
+    }
+
+    private void validateStationDisplayName(String value) {
+        if (value == null || value.isBlank() || value.length() > 120
+                || value.chars().anyMatch(character -> Character.isISOControl(character))) {
             throw new SessionTokenException();
         }
     }

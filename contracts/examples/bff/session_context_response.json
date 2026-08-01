@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "requestId": "REQ-SESSION-EXAMPLE-0001",
+  "userId": "responder-staging",
+  "stationId": "station-seoul-119",
+  "stationDisplayName": "서울 테스트 소방서",
+  "roles": [
+    "RESPONDER"
+  ],
+  "incidentScopes": [
+    "*"
+  ],
+  "issuedAt": "2026-08-01T12:00:00Z",
+  "expiresAt": "2026-08-01T20:00:00Z"
+}

@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,24 +29,26 @@ class BffContractSnapshotTest {
             Path.of("contracts/upstream/model-api-integration-v1.json");
 
     @Test
-    void bffContractPublishesExactlyFiveAuthenticatedBackendOwnedRoutes() throws IOException {
+    void bffContractPublishesAuthenticatedBackendOwnedRoutes() throws IOException {
         JsonNode contract = read(BFF_CONTRACT);
         JsonNode paths = contract.path("paths");
 
-        assertEquals(Set.of(
-                "/api/c2guard/v1/incidents/analyze",
-                "/api/c2guard/v1/substances/discover",
-                "/api/c2guard/v1/incidents/{incidentId}/confirmations",
-                "/api/c2guard/v1/incidents/{incidentId}/movement",
-                "/api/c2guard/v1/incidents/{incidentId}/record"
-        ), fieldNames(paths));
+        Map<String, String> expected = Map.of(
+                "/api/c2guard/v1/session", "get",
+                "/api/c2guard/v1/logout", "post",
+                "/api/c2guard/v1/incidents/analyze", "post",
+                "/api/c2guard/v1/substances/discover", "post",
+                "/api/c2guard/v1/incidents/{incidentId}/confirmations", "post",
+                "/api/c2guard/v1/incidents/{incidentId}/movement", "post",
+                "/api/c2guard/v1/incidents/{incidentId}/record", "post");
+        assertEquals(expected.keySet(), fieldNames(paths));
 
-        paths.properties().forEach(pathEntry -> {
-            JsonNode operation = pathEntry.getValue().path("post");
-            assertFalse(operation.isMissingNode(), pathEntry.getKey());
-            assertTrue(operation.path("security").toString().contains("ServiceSession"), pathEntry.getKey());
-            assertEquals("BE_Repository", operation.path("x-implementation-owner").asText(), pathEntry.getKey());
-            assertFalse(operation.path("x-model-api-direct-browser-call-allowed").asBoolean(true), pathEntry.getKey());
+        expected.forEach((path, method) -> {
+            JsonNode operation = paths.path(path).path(method);
+            assertFalse(operation.isMissingNode(), path);
+            assertTrue(operation.path("security").toString().contains("ServiceSession"), path);
+            assertEquals("BE_Repository", operation.path("x-implementation-owner").asText(), path);
+            assertFalse(operation.path("x-model-api-direct-browser-call-allowed").asBoolean(true), path);
         });
     }
 

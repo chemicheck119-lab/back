@@ -7,6 +7,7 @@ import java.util.Set;
 public record BffUserPrincipal(
         String userId,
         String organizationId,
+        String stationDisplayName,
         Set<BffRole> roles,
         Set<String> incidentScopes,
         String sessionId,
@@ -14,7 +15,17 @@ public record BffUserPrincipal(
         Instant expiresAt
 ) implements Principal {
 
+    public BffUserPrincipal(String userId, String organizationId,
+                            Set<BffRole> roles, Set<String> incidentScopes,
+                            String sessionId, Instant issuedAt, Instant expiresAt) {
+        this(userId, organizationId, organizationId, roles, incidentScopes,
+                sessionId, issuedAt, expiresAt);
+    }
+
     public BffUserPrincipal {
+        if (stationDisplayName == null || stationDisplayName.isBlank()) {
+            stationDisplayName = organizationId;
+        }
         roles = Set.copyOf(roles);
         incidentScopes = Set.copyOf(incidentScopes);
     }

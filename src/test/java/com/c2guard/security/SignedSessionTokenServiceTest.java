@@ -34,6 +34,17 @@ class SignedSessionTokenServiceTest {
     }
 
     @Test
+    void preservesTheTrustedStationDisplayName() {
+        SignedSessionTokenService service = service(properties(), NOW);
+
+        String token = service.issue("responder-1", "station-1", "서울 테스트 소방서",
+                Set.of(BffRole.RESPONDER), Set.of("INC-1"));
+
+        assertEquals("서울 테스트 소방서",
+                service.verify(token).stationDisplayName());
+    }
+
+    @Test
     void rejectsSignatureTampering() {
         SignedSessionTokenService service = service(properties(), NOW);
         String token = service.issue("responder-1", "station-1",

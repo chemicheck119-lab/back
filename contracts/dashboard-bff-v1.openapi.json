@@ -3616,6 +3616,76 @@
         ],
         "title": "DashboardSubstanceMention",
         "type": "object"
+      },
+      "DashboardSessionContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": "chemicheck119-dashboard-bff-v1",
+            "type": "string"
+          },
+          "requestId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "userId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "stationId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "stationDisplayName": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "RESPONDER",
+                "COMMANDER",
+                "ADMIN"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "incidentScopes": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "userId",
+          "stationId",
+          "stationDisplayName",
+          "roles",
+          "incidentScopes",
+          "issuedAt",
+          "expiresAt"
+        ],
+        "title": "DashboardSessionContextResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -3630,10 +3700,71 @@
   "info": {
     "description": "FE_Repository가 BE_Repository를 통해 모델 API를 안전하게 사용하는 계약입니다. 이 명세의 라우트는 llm FastAPI가 제공하지 않습니다.",
     "title": "케미체크119 대시보드 BFF 계약",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/c2guard/v1/session": {
+      "get": {
+        "operationId": "get_session_context_api_c2guard_v1_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSessionContextResponse"
+                }
+              }
+            },
+            "description": "Authenticated session context"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "ServiceSession": []
+          }
+        ],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false
+      }
+    },
+    "/api/c2guard/v1/logout": {
+      "post": {
+        "operationId": "logout_api_c2guard_v1_logout_post",
+        "responses": {
+          "204": {
+            "description": "Session cookie expired"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "ServiceSession": []
+          }
+        ],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false
+      }
+    },
     "/api/c2guard/v1/incidents/analyze": {
       "post": {
         "operationId": "analyze_incident_api_c2guard_v1_incidents_analyze_post",
