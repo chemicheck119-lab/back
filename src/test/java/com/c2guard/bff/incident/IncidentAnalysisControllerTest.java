@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,18 +22,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static com.c2guard.security.BffTestSession.responder;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static com.c2guard.security.BffTestSession.responder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -55,13 +59,18 @@ class IncidentAnalysisControllerTest {
     @MockBean
     private ModelApiClient modelApiClient;
 
+    @Autowired
+    private IncidentAgentMemoryStore agentMemoryStore;
+
     @Test
     void returnsTheExactClientFixtureAndForwardsTheSameRequestId() throws Exception {
         String requestId = "REQ-EXAMPLE-0001";
         JsonNode model = load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
         JsonNode expected = load("contracts/examples/bff/incident_awaiting_confirmation_response.json");
-        when(modelApiClient.analyzeIncident(any(JsonNode.class), eq(requestId)))
-                .thenReturn(new ModelApiResponse(requestId, model));
+        JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, model,
+                requestId, "INC-EXAMPLE-0001", null);
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenReturn(new ModelApiResponse(requestId, agent));
 
         mockMvc.perform(post(PATH)
                         .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
@@ -109,7 +118,7 @@ class IncidentAnalysisControllerTest {
         ModelApiException timeout = new ModelApiException(
                 ModelApiErrorKind.TIMEOUT, "MODEL_TIMEOUT", "request timed out",
                 true, null, requestId, List.of(), null);
-        when(modelApiClient.analyzeIncident(any(JsonNode.class), eq(requestId)))
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
                 .thenThrow(timeout);
 
         mockMvc.perform(post(PATH)
@@ -130,8 +139,10 @@ class IncidentAnalysisControllerTest {
         ObjectNode model = (ObjectNode) load(
                 "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
         model.put("request_id", "REQ-WRONG");
-        when(modelApiClient.analyzeIncident(any(JsonNode.class), eq(requestId)))
-                .thenReturn(new ModelApiResponse(requestId, model));
+        JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, model,
+                requestId, "INC-EXAMPLE-0001", null);
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenReturn(new ModelApiResponse(requestId, agent));
 
         mockMvc.perform(post(PATH)
                         .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
@@ -151,7 +162,7 @@ class IncidentAnalysisControllerTest {
         ModelApiException unavailable = new ModelApiException(
                 ModelApiErrorKind.UPSTREAM, "MODEL_NOT_READY", "artifact not ready",
                 true, 503, requestId, List.of(), null);
-        when(modelApiClient.analyzeIncident(any(JsonNode.class), eq(requestId)))
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
                 .thenThrow(unavailable);
 
         mockMvc.perform(post(PATH)
@@ -165,6 +176,85 @@ class IncidentAnalysisControllerTest {
                 .andExpect(jsonPath("$.error.code").value("MODEL_SERVICE_UNAVAILABLE"))
                 .andExpect(jsonPath("$.error.retryable").value(true))
                 .andExpect(jsonPath("$.resetAllowed").value(false));
+    }
+
+    @Test
+    void sendsStoredMemoryAndUsesTheLastSnapshotWhenThereIsNoNewObservation()
+            throws Exception {
+        String incidentId = "INC-AGENT-NO-CHANGE";
+        String firstRequestId = "REQ-AGENT-FIRST";
+        String secondRequestId = "REQ-AGENT-SECOND";
+        ObjectNode analysis = (ObjectNode) load(
+                "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        analysis.put("request_id", firstRequestId);
+        analysis.put("incident_id", incidentId);
+        analysis.put("analysis_id", "ANL-AGENT-NO-CHANGE");
+        ObjectNode first = IncidentAgentTestResponse.withAnalysis(objectMapper, analysis,
+                firstRequestId, incidentId, null);
+        ObjectNode second = IncidentAgentTestResponse.withoutAnalysis(objectMapper,
+                secondRequestId, incidentId, first.path("memory"));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(firstRequestId)))
+                .thenReturn(new ModelApiResponse(firstRequestId, first));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(secondRequestId)))
+                .thenReturn(new ModelApiResponse(secondRequestId, second));
+
+        ObjectNode request = (ObjectNode) load(
+                "contracts/examples/bff/incident_analyze_request.json");
+        request.put("incidentId", incidentId);
+        String body = objectMapper.writeValueAsString(request);
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", firstRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysisId").value("ANL-AGENT-NO-CHANGE"));
+
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", secondRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestId").value(secondRequestId))
+                .andExpect(jsonPath("$.analysisId").value("ANL-AGENT-NO-CHANGE"))
+                .andExpect(jsonPath("$.riskDisplayAllowed").value(false));
+
+        ArgumentCaptor<JsonNode> requests = ArgumentCaptor.forClass(JsonNode.class);
+        verify(modelApiClient, times(2)).stepIncidentAgent(requests.capture(),
+                org.mockito.ArgumentMatchers.anyString());
+        assertFalse(requests.getAllValues().get(0).has("memory"));
+        org.junit.jupiter.api.Assertions.assertEquals(first.path("memory"),
+                requests.getAllValues().get(1).path("memory"));
+        org.junit.jupiter.api.Assertions.assertEquals(2,
+                agentMemoryStore.find(incidentId).orElseThrow().revision());
+    }
+
+    @Test
+    void storesFailedSafetyMemoryButDoesNotExposeAnAnalysis() throws Exception {
+        String incidentId = "INC-AGENT-SAFETY-FAILURE";
+        String requestId = "REQ-AGENT-SAFETY-FAILURE";
+        ObjectNode failed = IncidentAgentTestResponse.failed(objectMapper, requestId,
+                incidentId, null, "FAILED_SAFETY");
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenReturn(new ModelApiResponse(requestId, failed));
+        ObjectNode request = (ObjectNode) load(
+                "contracts/examples/bff/incident_analyze_request.json");
+        request.put("incidentId", incidentId);
+
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("AGENT_SAFETY_FAILURE"))
+                .andExpect(jsonPath("$.error.retryable").value(false))
+                .andExpect(jsonPath("$.resetAllowed").value(false));
+
+        org.junit.jupiter.api.Assertions.assertEquals("FAILED_SAFETY",
+                agentMemoryStore.find(incidentId).orElseThrow().memory()
+                        .path("status").asText());
     }
 
     private JsonNode load(String path) throws Exception {

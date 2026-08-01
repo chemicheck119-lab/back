@@ -2,6 +2,7 @@ package com.c2guard.bff.confirmation;
 
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiResponse;
+import com.c2guard.bff.incident.IncidentAgentTestResponse;
 import com.c2guard.security.SignedSessionTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -65,8 +67,8 @@ class ConfirmationGateIntegrationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<JsonNode> request = ArgumentCaptor.forClass(JsonNode.class);
-        verify(modelApiClient).analyzeIncident(request.capture(), eq(analysisRequestId));
-        JsonNode modelRequest = request.getValue();
+        verify(modelApiClient).stepIncidentAgent(request.capture(), eq(analysisRequestId));
+        JsonNode modelRequest = request.getValue().path("analysis");
         JsonNode expected = objectMapper.readTree(Files.readString(Path.of(
                 "src/test/resources/fixtures/model/incident_confirmed_request.json")));
         assertEquals(expected.path("confirmed_incident_substance"),
@@ -93,9 +95,62 @@ class ConfirmationGateIntegrationTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<JsonNode> request = ArgumentCaptor.forClass(JsonNode.class);
-        verify(modelApiClient).analyzeIncident(request.capture(), eq(analysisRequestId));
-        assertTrue(request.getValue().has("confirmed_incident_substance"));
-        assertFalse(request.getValue().has("confirmed_facility_substance"));
+        verify(modelApiClient).stepIncidentAgent(request.capture(), eq(analysisRequestId));
+        JsonNode analysis = request.getValue().path("analysis");
+        assertTrue(analysis.has("confirmed_incident_substance"));
+        assertFalse(analysis.has("confirmed_facility_substance"));
+    }
+
+    @Test
+    void reanalysisSendsBothTheLatestMemoryAndNewAuthoritativeConfirmation()
+            throws Exception {
+        String incidentId = "INC-GATE-MEMORY-REFRESH";
+        String firstRequestId = "REQ-GATE-MEMORY-FIRST";
+        String secondRequestId = "REQ-GATE-MEMORY-SECOND";
+        when(idGenerator.nextId()).thenReturn("CFM-GATE-MEMORY-INCIDENT");
+
+        ObjectNode firstAnalysis = modelResponse(firstRequestId, incidentId,
+                "ANL-GATE-MEMORY-FIRST");
+        ObjectNode firstAgent = IncidentAgentTestResponse.withAnalysis(objectMapper,
+                firstAnalysis, firstRequestId, incidentId, null);
+        ObjectNode secondAnalysis = modelResponse(secondRequestId, incidentId,
+                "ANL-GATE-MEMORY-SECOND");
+        secondAnalysis.put("state", "AWAITING_FACILITY_CONFIRMATION");
+        ((ObjectNode) secondAnalysis.path("confirmation_gate"))
+                .put("incident_confirmed", true);
+        ((com.fasterxml.jackson.databind.node.ArrayNode) secondAnalysis
+                .path("conflict_review").path("missing_confirmations"))
+                .removeAll().add("facility_cas");
+        ObjectNode secondAgent = IncidentAgentTestResponse.withAnalysis(objectMapper,
+                secondAnalysis, secondRequestId, incidentId, firstAgent.path("memory"));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(firstRequestId)))
+                .thenReturn(new ModelApiResponse(firstRequestId, firstAgent));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(secondRequestId)))
+                .thenReturn(new ModelApiResponse(secondRequestId, secondAgent));
+
+        String analysisBody = analysisFixture(incidentId);
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", firstRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisBody))
+                .andExpect(status().isOk());
+        save(incidentId, "REQ-GATE-MEMORY-CONFIRM", incidentFixture());
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", secondRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisBody))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<JsonNode> requests = ArgumentCaptor.forClass(JsonNode.class);
+        verify(modelApiClient, times(2)).stepIncidentAgent(requests.capture(),
+                org.mockito.ArgumentMatchers.anyString());
+        JsonNode secondRequest = requests.getAllValues().get(1);
+        assertEquals(firstAgent.path("memory"), secondRequest.path("memory"));
+        assertEquals("CFM-GATE-MEMORY-INCIDENT", secondRequest.path("analysis")
+                .path("confirmed_incident_substance").path("confirmation_id").asText());
+        assertFalse(secondRequest.path("analysis").has("confirmed_facility_substance"));
     }
 
     private void save(String incidentId, String requestId, String body) throws Exception {
@@ -109,13 +164,21 @@ class ConfirmationGateIntegrationTest {
 
     private void stubModelResponse(String requestId, String incidentId, String analysisId)
             throws Exception {
+        ObjectNode response = modelResponse(requestId, incidentId, analysisId);
+        JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, response,
+                requestId, incidentId, null);
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenReturn(new ModelApiResponse(requestId, agent));
+    }
+
+    private ObjectNode modelResponse(String requestId, String incidentId,
+                                     String analysisId) throws Exception {
         ObjectNode response = (ObjectNode) objectMapper.readTree(Files.readString(Path.of(
                 "src/test/resources/fixtures/model/incident_unconfirmed_response.json")));
         response.put("request_id", requestId);
         response.put("incident_id", incidentId);
         response.put("analysis_id", analysisId);
-        when(modelApiClient.analyzeIncident(any(JsonNode.class), eq(requestId)))
-                .thenReturn(new ModelApiResponse(requestId, response));
+        return response;
     }
 
     private String analysisFixture(String incidentId) throws Exception {

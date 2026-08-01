@@ -1,0 +1,353 @@
+{
+  "contract_version": "chemicheck119-cross-repo-v1",
+  "api_schema_version": "chemiguard119-api-v1",
+  "service": {
+    "id": "chemicheck119-model-api",
+    "repository": "https://github.com/chemicheck119/llm",
+    "primary_endpoint": {
+      "method": "POST",
+      "path": "/api/v1/incidents/analyze"
+    },
+    "incident_agent_endpoint": {
+      "method": "POST",
+      "path": "/api/v1/agents/incidents/step",
+      "memory_owner": "BE_Repository",
+      "server_side_session_storage": false
+    },
+    "material_discovery_endpoint": {
+      "method": "POST",
+      "path": "/api/v1/substances/discover"
+    },
+    "metadata_path": "/api/v1/meta",
+    "liveness_path": "/health/live",
+    "readiness_path": "/health/ready"
+  },
+  "dashboard_bff": {
+    "contract_version": "chemicheck119-dashboard-bff-v1",
+    "implementation_owner": "BE_Repository",
+    "implementation_status": "CONTRACT_ONLY_NOT_IMPLEMENTED_IN_LLM",
+    "openapi": "contracts/dashboard-bff-v1.openapi.json",
+    "typescript_types": "contracts/dashboard-bff-v1.types.ts",
+    "typescript_client_example": "examples/integration/dashboard-bff-client.ts",
+    "frontend_base_url_env": "VITE_CHEMICHECK119_BFF_BASE_URL",
+    "recommended_same_origin_base_url": "/api/c2guard/v1",
+    "routes": {
+      "material_discovery": "POST /api/c2guard/v1/substances/discover",
+      "incident_analysis": "POST /api/c2guard/v1/incidents/analyze",
+      "movement_update": "POST /api/c2guard/v1/incidents/{incidentId}/movement",
+      "on_site_confirmation": "POST /api/c2guard/v1/incidents/{incidentId}/confirmations",
+      "record_save": "POST /api/c2guard/v1/incidents/{incidentId}/record"
+    },
+    "completed_result_projection": {
+      "policy": "LOSSLESS_SAFETY_FIELDS_ONLY",
+      "reference_function": "chemiguard119.dashboard_contract.project_completed_model_result",
+      "source_fixture": "examples/api/conflict_screening_completed_result.json",
+      "dashboard_fixture": "examples/bff/incident_screening_completed_response.json",
+      "pair_presentation_contract": "config/dashboard_public_pair_contract.json",
+      "pair_presentation_contract_version": "dashboard-public-pair-presentation-v1",
+      "supported_public_pair_count": 15,
+      "backend_must_not_generate_chemical_fields": true
+    },
+    "operations_agent_projection": {
+      "reference_function": "chemiguard119.dashboard_contract.project_operations_agent",
+      "source_field": "agent",
+      "dashboard_fixture": "examples/bff/operations_agent_en_route.json",
+      "backend_must_not_invent_route_or_eta": true,
+      "backward_compatible_optional_bff_field": true
+    },
+    "incident_agent_loop": {
+      "endpoint": "POST /api/v1/agents/incidents/step",
+      "planning_mode": "DETERMINISTIC_POLICY_PLANNER",
+      "phases": [
+        "PLAN",
+        "ACT",
+        "OBSERVE",
+        "REPLAN"
+      ],
+      "memory_mode": "BE_PERSISTED_EXTERNAL_MEMORY",
+      "memory_can_trigger_rule": false,
+      "autonomous_risk_decision_allowed": false,
+      "trace_is_chain_of_thought": false,
+      "backend_compare_and_swap_fields": [
+        "revision",
+        "runtime_state_fingerprint",
+        "memory_sha256",
+        "parent_memory_sha256"
+      ]
+    },
+    "deprecated_frontend_shape": {
+      "path": "POST /api/incident-check",
+      "fields_not_allowed_in_v1": [
+        "hasIncompatible",
+        "heldSubstanceCount"
+      ],
+      "reason": "미실행·근거부족을 낮음/없음으로 오표현하고 과거 이력을 현재 보유로 오해할 수 있습니다."
+    }
+  },
+  "fixtures": {
+    "unconfirmed_request": "examples/api/incident_unconfirmed_request.json",
+    "unconfirmed_response": "examples/api/incident_unconfirmed_response.json",
+    "confirmed_request": "examples/api/incident_confirmed_request.json",
+    "conflict_screening_completed_result": "examples/api/conflict_screening_completed_result.json",
+    "material_discovery_request": "examples/api/material_discovery_request.json",
+    "material_discovery_response": "examples/api/material_discovery_response.json",
+    "incident_agent_step_request": "examples/api/incident_agent_step_request.json",
+    "dashboard_bff": {
+      "material_discovery_request": "examples/bff/material_discovery_request.json",
+      "material_discovery_candidates_response": "examples/bff/material_discovery_candidates_response.json",
+      "material_discovery_no_match_response": "examples/bff/material_discovery_no_match_response.json",
+      "incident_analyze_request": "examples/bff/incident_analyze_request.json",
+      "incident_awaiting_confirmation_response": "examples/bff/incident_awaiting_confirmation_response.json",
+      "incident_screening_completed_response": "examples/bff/incident_screening_completed_response.json",
+      "operations_agent_en_route": "examples/bff/operations_agent_en_route.json",
+      "movement_update_request": "examples/bff/movement_update_request.json",
+      "movement_update_response": "examples/bff/movement_update_response.json",
+      "confirmation_request": "examples/bff/confirmation_request.json",
+      "confirmation_response": "examples/bff/confirmation_response.json",
+      "record_save_request": "examples/bff/record_save_request.json",
+      "record_save_success_response": "examples/bff/record_save_success_response.json",
+      "record_save_failure_response": "examples/bff/record_save_failure_response.json",
+      "model_unavailable_error_response": "examples/bff/model_unavailable_error_response.json"
+    }
+  },
+  "call_path": [
+    {
+      "from": "FE_Repository",
+      "to": "BE_Repository",
+      "rule": "프론트엔드는 모델 API를 직접 호출하지 않고 서비스 백엔드 API만 호출한다."
+    },
+    {
+      "from": "BE_Repository",
+      "to": "llm",
+      "rule": "백엔드만 내부 모델 API와 X-API-Key를 사용한다."
+    }
+  ],
+  "security": {
+    "model_api_public_browser_access": false,
+    "api_key_header": "X-API-Key",
+    "request_id_header": "X-Request-Id",
+    "api_key_owner": "BE_Repository deployment secret",
+    "api_key_minimum_length": 32,
+    "browser_calls_only_dashboard_bff": true,
+    "browser_model_api_key_allowed": false,
+    "preferred_browser_auth": "BE-managed HttpOnly Secure SameSite session",
+    "cors_owner": "BE_Repository",
+    "model_api_cors_required": false
+  },
+  "client_policy": {
+    "connect_timeout_seconds": 2,
+    "response_timeout_seconds": 15,
+    "max_transient_retries": 1,
+    "retryable_http_statuses": [
+      503
+    ],
+    "never_retry_http_statuses": [
+      401,
+      422,
+      500
+    ],
+    "request_id_is_idempotency_key": false
+  },
+  "presentation_policy": {
+    "candidate_score_semantics": "RANKING_NOT_PROBABILITY",
+    "facility_history_semantics": "HISTORICAL_CANDIDATE_NOT_CURRENT_INVENTORY",
+    "planned_actions_semantics": "UNVALIDATED_USER_INPUT_NOT_AI_RECOMMENDATION",
+    "map_and_movement": {
+      "coverage_scope": "NATIONWIDE_KOREA",
+      "recommended_renderer": "MAPLIBRE_GL_JS",
+      "geometry_format": "GEOJSON_RFC7946",
+      "route_provider_owner": "BE_Repository server-side",
+      "route_api_key_in_browser_allowed": false,
+      "route_or_eta_inference_allowed": false,
+      "missing_route_status": "ROUTE_UNAVAILABLE",
+      "route_endpoint_mismatch_status": "ROUTE_ENDPOINT_MISMATCH",
+      "route_endpoint_tolerance_m": 1500,
+      "stale_position_seconds": 300,
+      "demo_route_must_use_mode": "DEMO_SIMULATION",
+      "public_osm_standard_tiles_for_production": false,
+      "hazard_overlay_status": "NOT_COMPUTED_NO_VALIDATED_DISPERSION_MODEL"
+    },
+    "material_search_capabilities": [
+      "CAS_NUMBER",
+      "STANDARD_NAME",
+      "ALIAS",
+      "MULTI_FIELD_PROPERTY_PROFILE_RETRIEVAL",
+      "CANDIDATE_SPECIFIC_OFFICIAL_EVIDENCE"
+    ],
+    "material_search_not_yet_supported": [
+      "PROPERTY_ONLY_AUTO_CONFIRMATION",
+      "IMAGE_OR_SENSOR_AUTHENTICITY_VERIFICATION"
+    ],
+    "material_discovery": {
+      "minimum_distinct_property_fields": 2,
+      "minimum_distinct_property_tokens": 2,
+      "candidate_only": true,
+      "requires_responder_confirmation": true,
+      "rule_eligible": false,
+      "risk_display_allowed": false,
+      "empty_evidence_means_safe": false,
+      "no_reliable_candidate_means_absent": false,
+      "no_reliable_candidate_means_safe": false,
+      "no_reliable_candidate_next_action": "관찰 정보 보강 및 외부 공식 MSDS 확인",
+      "property_source_label": "소방청 울산 화학물질 정보 기반 관찰 후보",
+      "evidence_card_body_label": "공식 문서 발췌",
+      "ranking_score_must_not_be_displayed_as_confidence": true,
+      "warning_fields_must_be_preserved": [
+        "evidence_warning",
+        "evidence_notice",
+        "cas_link_warning",
+        "evidence.cas_link_status"
+      ]
+    },
+    "unconfirmed_states": [
+      "AWAITING_SUBSTANCE_CONFIRMATION",
+      "AWAITING_INCIDENT_CONFIRMATION",
+      "AWAITING_FACILITY_CONFIRMATION"
+    ],
+    "unconfirmed": {
+      "risk_display_allowed": false,
+      "specific_reaction_display_allowed": false,
+      "recommended_response_display_allowed": false,
+      "facility_candidate_label": "과거 공개 이력 기반 시설물질 후보",
+      "required_conflict_review_status": "NOT_RUN_REQUIRES_TWO_CONFIRMED_CAS",
+      "required_conflict_executed": false
+    },
+    "confirmed": {
+      "risk_display_requires_all_confirmations": true,
+      "risk_display_requires_executed_review": true,
+      "ordinal_scale_is_probability": false,
+      "low_means_safe": false,
+      "required_disclosures": [
+        "source_url",
+        "rule_version",
+        "expert_reviewed",
+        "final_decision_authority"
+      ]
+    },
+    "v1_pair_limit": {
+      "confirmed_incident_substances": 1,
+      "confirmed_facility_substances": 1,
+      "conflict_reviews": 1,
+      "multiple_facility_candidates_before_confirmation_allowed": true,
+      "multiple_executed_pair_reviews_in_one_response_allowed": false
+    }
+  },
+  "parser_scope": {
+    "extracts": [
+      "incident_type",
+      "registered_substance_expression",
+      "substance_role_in_supported_context",
+      "assertion",
+      "limited_planned_action_expression"
+    ],
+    "does_not_extract": [
+      "facility_name",
+      "address",
+      "province",
+      "coordinates",
+      "equipment",
+      "raw_audio_to_text"
+    ],
+    "location_input_owner": "BE dispatch record or responder selection",
+    "voice_transcript_meaning": "이미 문자로 변환된 신고문"
+  },
+  "dashboard_workflow": {
+    "material_discovery": [
+      "관찰 내용 또는 물질 표현 입력",
+      "후보와 출처 카드 표시",
+      "용기 라벨·현장 MSDS 등으로 현장 물질 확인",
+      "BE가 confirmation_id 발급",
+      "두 CAS가 모두 확인된 뒤 충돌 검토"
+    ],
+    "confirmation_button": {
+      "recommended_label": "현장 물질 확인",
+      "meaning": "현장 확인 레코드 생성",
+      "not_meaning": [
+        "AI 판정 승인",
+        "전체 대응 기록 저장",
+        "지휘관 전자서명"
+      ]
+    },
+    "record_save": {
+      "owner": "BE_Repository",
+      "sequence": [
+        "초기화 안내 표시",
+        "전체 대화·분석·확인 기록 저장 요청",
+        "저장 성공 확인",
+        "화면 초기화"
+      ],
+      "reset_before_save_success_allowed": false,
+      "model_api_is_stateless": true,
+      "analysis_ids_required": true,
+      "message_analysis_ids_must_be_in_analysis_ids": true,
+      "authoritative_snapshots_loaded_by_backend": true,
+      "frontend_supplied_snapshots_are_authoritative": false,
+      "backend_must_verify_id_exists_and_belongs_to_incident": true,
+      "unknown_or_cross_incident_id_status": 409
+    },
+    "confirmation_refresh": {
+      "confirmation_response_sets_reanalyze_required": true,
+      "frontend_calls_incident_analysis_after_confirmation": true,
+      "backend_loads_saved_confirmation_records": true
+    }
+  },
+  "compatibility": {
+    "accepted_api_schema_versions": [
+      "chemiguard119-api-v1"
+    ],
+    "required_response_headers": [
+      "X-Request-Id",
+      "X-API-Schema-Version",
+      "X-Service-Id"
+    ],
+    "required_analysis_response_fields": [
+      "schema_version",
+      "analysis_id",
+      "request_id",
+      "incident_id",
+      "state",
+      "input_fingerprint",
+      "model_outputs",
+      "evidence",
+      "grounded_rag",
+      "agent",
+      "conflict_review",
+      "confirmation_gate",
+      "required_next_steps",
+      "provenance",
+      "safety_notice"
+    ]
+  },
+  "ownership": {
+    "FE_Repository": [
+      "태블릿 표시 상태",
+      "사용자 입력",
+      "백엔드 DTO 렌더링"
+    ],
+    "BE_Repository": [
+      "사용자 인증",
+      "사고 CRUD",
+      "현장 확인 레코드",
+      "모델 API 인증과 호출",
+      "분석 결과 저장",
+      "프론트용 DTO 변환"
+    ],
+    "llm": [
+      "신고문 구조화",
+      "물질 후보 검색",
+      "시설 이력 후보 검색",
+      "근거 검색",
+      "근거 제한형 RAG 요약",
+      "충돌 규칙 검토",
+      "모델과 데이터 provenance",
+      "결정론적 현장대응 에이전트 상태와 다음 행동"
+    ]
+  },
+  "merge_order": [
+    "llm 계약과 모델 API 변경 PR 병합",
+    "BE_Repository 모델 클라이언트와 계약 테스트 PR 병합",
+    "FE_Repository 백엔드 DTO 연동 PR 병합",
+    "세 서비스 staging 통합 테스트",
+    "배포 태그 고정 후 운영 승격"
+  ]
+}

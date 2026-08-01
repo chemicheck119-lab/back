@@ -24,6 +24,8 @@ class BffContractSnapshotTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Path BFF_CONTRACT = Path.of("contracts/dashboard-bff-v1.openapi.json");
     private static final Path MODEL_CONTRACT = Path.of("contracts/upstream/model-api-v1.openapi.json");
+    private static final Path INTEGRATION_CONTRACT =
+            Path.of("contracts/upstream/model-api-integration-v1.json");
 
     @Test
     void bffContractPublishesExactlyFiveAuthenticatedBackendOwnedRoutes() throws IOException {
@@ -84,10 +86,43 @@ class BffContractSnapshotTest {
                 "/api/v1/evidence/search",
                 "/api/v1/facilities/candidates",
                 "/api/v1/conflicts/review",
-                "/api/v1/incidents/analyze"
+                "/api/v1/incidents/analyze",
+                "/api/v1/agents/incidents/step"
         );
 
         assertTrue(fieldNames(paths).containsAll(required));
+    }
+
+    @Test
+    void incidentAgentContractMakesBackendTheExternalMemoryOwner() throws IOException {
+        JsonNode model = read(MODEL_CONTRACT);
+        JsonNode operation = model.path("paths")
+                .path("/api/v1/agents/incidents/step").path("post");
+        assertEquals("#/components/schemas/IncidentAgentStepRequest",
+                operation.path("requestBody").path("content").path("application/json")
+                        .path("schema").path("$ref").asText());
+        assertEquals("#/components/schemas/IncidentAgentStepResponse",
+                operation.path("responses").path("200").path("content")
+                        .path("application/json").path("schema").path("$ref").asText());
+
+        JsonNode integration = read(INTEGRATION_CONTRACT);
+        JsonNode agent = integration.path("service").path("incident_agent_endpoint");
+        assertEquals("/api/v1/agents/incidents/step", agent.path("path").asText());
+        assertEquals("BE_Repository", agent.path("memory_owner").asText());
+        assertFalse(agent.path("server_side_session_storage").asBoolean(true));
+
+        JsonNode loop = integration.path("dashboard_bff").path("incident_agent_loop");
+        assertEquals("BE_PERSISTED_EXTERNAL_MEMORY", loop.path("memory_mode").asText());
+        assertFalse(loop.path("memory_can_trigger_rule").asBoolean(true));
+        assertFalse(loop.path("trace_is_chain_of_thought").asBoolean(true));
+        assertTrue(loop.path("backend_compare_and_swap_fields").toString()
+                .contains("parent_memory_sha256"));
+
+        JsonNode request = read(Path.of(
+                "contracts/examples/model/incident_agent_step_request.json"));
+        assertFalse(request.path("analysis").path("incident_id").asText().isBlank());
+        assertTrue(request.path("memory").isMissingNode());
+        assertEquals(6, request.path("max_actions").asInt());
     }
 
     @Test
@@ -125,6 +160,10 @@ class BffContractSnapshotTest {
     void lockedArtifactHashesMatchRepositoryFiles() throws IOException, NoSuchAlgorithmException {
         JsonNode lock = read(Path.of("contracts/contract-lock.json"));
         assertEquals("e24fa93d538229844af4377976ee5a180c881fb3", lock.path("sourceMergeCommit").asText());
+        assertEquals("c4febf23d8ea20ce01a90f2c683ac4667e867d1c",
+                lock.path("latestAuditedMainCommit").asText());
+        assertTrue(lock.path("upstreamChanges").toString()
+                .contains("32736a680d445acea158da42efebd87651ce11b2"));
 
         for (JsonNode artifact : lock.path("artifacts")) {
             Path path = Path.of(artifact.path("path").asText());

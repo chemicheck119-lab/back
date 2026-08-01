@@ -21,4 +21,6 @@ public interface ModelApiClient {
     ModelApiResponse reviewConflicts(JsonNode request, String requestId);
 
     ModelApiResponse analyzeIncident(JsonNode request, String requestId);
+
+    ModelApiResponse stepIncidentAgent(JsonNode request, String requestId);
 }

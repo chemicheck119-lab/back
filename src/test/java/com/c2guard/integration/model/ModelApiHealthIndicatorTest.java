@@ -64,12 +64,37 @@ class ModelApiHealthIndicatorTest {
                 .setResponseCode(200)
                 .addHeader("Content-Type", "application/json")
                 .setBody("{\"status\":\"ready\"}"));
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody(agentMetadata()));
 
         Health health = new ModelApiHealthIndicator(client, properties).health();
 
         assertEquals(Status.UP, health.getStatus());
         assertEquals("chemiguard119-api-v1", health.getDetails().get("schema"));
-        assertEquals(1, server.getRequestCount());
+        assertEquals("chemicheck119-incident-agent-v1",
+                health.getDetails().get("agentSchema"));
+        assertEquals(2, server.getRequestCount());
+    }
+
+    @Test
+    void missingAgentCapabilityMakesReadinessFailClosed() {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody("{\"status\":\"ready\"}"));
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody("{\"api_schema_version\":\"chemiguard119-api-v1\"}"));
+
+        Health health = new ModelApiHealthIndicator(client, properties).health();
+
+        assertEquals(Status.DOWN, health.getStatus());
+        assertEquals("MODEL_AGENT_CAPABILITY_NOT_READY", health.getDetails().get("code"));
+        assertEquals(false, health.getDetails().get("retryable"));
+        assertEquals(2, server.getRequestCount());
     }
 
     @Test
@@ -84,5 +109,21 @@ class ModelApiHealthIndicatorTest {
         assertEquals(Status.DOWN, health.getStatus());
         assertEquals("MODEL_NOT_READY", health.getDetails().get("code"));
         assertEquals(false, health.getDetails().get("retryable"));
+    }
+
+    private String agentMetadata() {
+        return """
+                {
+                  "api_schema_version": "chemiguard119-api-v1",
+                  "incident_agent_capability": {
+                    "schema_version": "chemicheck119-incident-agent-v1",
+                    "endpoint": "/api/v1/agents/incidents/step",
+                    "memory_mode": "BE_PERSISTED_EXTERNAL_MEMORY",
+                    "server_side_session_storage": false,
+                    "memory_can_trigger_rule": false,
+                    "autonomous_risk_decision_allowed": false
+                  }
+                }
+                """;
     }
 }

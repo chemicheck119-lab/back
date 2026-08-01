@@ -54,10 +54,14 @@ class RestModelApiClientTest {
 
     @Test
     void exposesEveryModelApiPathWithCorrectAuthenticationBoundary() throws InterruptedException {
-        for (int i = 0; i < 9; i++) {
-            server.enqueue(okJson(i >= 4 && (i == 4 || i == 8)
-                    ? "{\"schema_version\":\"chemiguard119-api-v1\"}"
-                    : "{}"));
+        for (int i = 0; i < 10; i++) {
+            String body = "{}";
+            if (i == 4 || i == 8) {
+                body = "{\"schema_version\":\"chemiguard119-api-v1\"}";
+            } else if (i == 9) {
+                body = "{\"schema_version\":\"chemicheck119-incident-agent-v1\"}";
+            }
+            server.enqueue(okJson(body));
         }
 
         JsonNode request = objectMapper.createObjectNode().put("query", "염산");
@@ -70,6 +74,7 @@ class RestModelApiClientTest {
         client.findFacilityCandidates(request, REQUEST_ID);
         client.reviewConflicts(request, REQUEST_ID);
         client.analyzeIncident(request, REQUEST_ID);
+        client.stepIncidentAgent(request, REQUEST_ID);
 
         List<String> expectedPaths = List.of(
                 "/health/live",
@@ -80,7 +85,8 @@ class RestModelApiClientTest {
                 "/api/v1/evidence/search",
                 "/api/v1/facilities/candidates",
                 "/api/v1/conflicts/review",
-                "/api/v1/incidents/analyze"
+                "/api/v1/incidents/analyze",
+                "/api/v1/agents/incidents/step"
         );
         for (int i = 0; i < expectedPaths.size(); i++) {
             RecordedRequest recorded = server.takeRequest();
@@ -96,14 +102,14 @@ class RestModelApiClientTest {
 
     @Test
     void protectedCallPropagatesBodyApiKeyAndRequestId() throws Exception {
-        server.enqueue(okJson("{\"schema_version\":\"chemiguard119-api-v1\",\"request_id\":\"REQ-TEST-0001\"}"));
+        server.enqueue(okJson("{\"schema_version\":\"chemicheck119-incident-agent-v1\",\"request_id\":\"REQ-TEST-0001\"}"));
         ObjectNode body = objectMapper.createObjectNode().put("input", "민감 신고 원문");
 
-        ModelApiResponse response = client.analyzeIncident(body, REQUEST_ID);
+        ModelApiResponse response = client.stepIncidentAgent(body, REQUEST_ID);
 
         RecordedRequest recorded = server.takeRequest();
         assertEquals("POST", recorded.getMethod());
-        assertEquals("/api/v1/incidents/analyze", recorded.getPath());
+        assertEquals("/api/v1/agents/incidents/step", recorded.getPath());
         assertEquals(API_KEY, recorded.getHeader(RestModelApiClient.API_KEY_HEADER));
         assertEquals(REQUEST_ID, recorded.getHeader(RestModelApiClient.REQUEST_ID_HEADER));
         assertTrue(recorded.getBody().readUtf8().contains("민감 신고 원문"));
@@ -216,6 +222,19 @@ class RestModelApiClientTest {
         assertEquals("MODEL_SCHEMA_MISMATCH", error.getCode());
         assertFalse(error.isRetryable());
         assertEquals(List.of("schema_version"), error.getFields());
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    void incidentAgentUsesItsDedicatedEnvelopeSchema() {
+        server.enqueue(okJson("{\"schema_version\":\"chemiguard119-api-v1\"}"));
+
+        ModelApiException error = assertThrows(ModelApiException.class,
+                () -> client.stepIncidentAgent(query(), REQUEST_ID));
+
+        assertEquals(ModelApiErrorKind.CONTRACT, error.getKind());
+        assertEquals("MODEL_SCHEMA_MISMATCH", error.getCode());
+        assertFalse(error.isRetryable());
         assertEquals(1, server.getRequestCount());
     }
 
