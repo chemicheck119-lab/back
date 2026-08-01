@@ -33,7 +33,8 @@ public class BffSecurityConfiguration {
             BffSessionAuthenticationFilter sessionAuthenticationFilter,
             BffSecurityErrorHandler securityErrorHandler,
             IncidentPathAuthorizationManager incidentAuthorization,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
+            CorsConfigurationSource corsConfigurationSource,
+            BffSecurityProperties properties) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
@@ -46,15 +47,25 @@ public class BffSecurityConfiguration {
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(securityErrorHandler)
                         .accessDeniedHandler(securityErrorHandler))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
-                        .requestMatchers("/actuator/health/**").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/c2guard/v1/incidents/analyze").authenticated()
-                        .requestMatchers("/api/c2guard/v1/incidents/*/**")
-                        .access(incidentAuthorization)
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll())
+                .authorizeHttpRequests(authorize -> {
+                    authorize
+                            .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
+                            .requestMatchers("/actuator/health/**").permitAll();
+                    if (properties.isPublicAnalysisEnabled()) {
+                        authorize.requestMatchers(HttpMethod.POST,
+                                "/api/c2guard/v1/incidents/analyze",
+                                "/api/c2guard/v1/substances/discover").permitAll();
+                    } else {
+                        authorize.requestMatchers(HttpMethod.POST,
+                                "/api/c2guard/v1/incidents/analyze",
+                                "/api/c2guard/v1/substances/discover").authenticated();
+                    }
+                    authorize
+                            .requestMatchers("/api/c2guard/v1/incidents/*/**")
+                            .access(incidentAuthorization)
+                            .requestMatchers("/api/**").authenticated()
+                            .anyRequest().permitAll();
+                })
                 .addFilterBefore(sessionAuthenticationFilter,
                         AnonymousAuthenticationFilter.class);
         return http.build();

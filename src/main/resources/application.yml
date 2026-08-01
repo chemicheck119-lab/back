@@ -40,6 +40,7 @@ chemicheck119:
     cookie-secure: ${CHEMICHECK119_SESSION_COOKIE_SECURE:true}
     cookie-same-site: ${CHEMICHECK119_SESSION_COOKIE_SAME_SITE:Lax}
     allowed-origins: ${CHEMICHECK119_CORS_ALLOWED_ORIGINS:}
+    public-analysis-enabled: ${CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED:false}
   staging-auth:
     enabled: ${CHEMICHECK119_STAGING_AUTH_ENABLED:false}
     callback-url: ${CHEMICHECK119_STAGING_AUTH_CALLBACK_URL:}

@@ -8,6 +8,16 @@ on:
         required: true
         type: boolean
         default: false
+      public_analysis_enabled:
+        description: 공개 FE의 물질 검색·사고 분석 호출을 세션 없이 허용합니다
+        required: true
+        type: boolean
+        default: true
+      use_external_database:
+        description: 승인된 외부 PostgreSQL secret을 사용합니다
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,6 +67,9 @@ jobs:
           GCP_STAGING_AUTH_STATION_DISPLAY_NAME: ${{ vars.GCP_STAGING_AUTH_STATION_DISPLAY_NAME }}
           GCP_STAGING_AUTH_PASSWORD_SECRET: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET }}
           GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION }}
+          GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
+          GCP_REQUIRE_EXTERNAL_DATABASE: ${{ inputs.use_external_database }}
+          GCP_STAGING_AUTH_ENABLED: "false"
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -74,19 +87,10 @@ jobs:
             GCP_MODEL_API_KEY_SECRET_VERSION \
             GCP_SESSION_SECRET \
             GCP_SESSION_SECRET_VERSION \
-            GCP_DATABASE_URL_SECRET \
-            GCP_DATABASE_URL_SECRET_VERSION \
-            GCP_DATABASE_USERNAME_SECRET \
-            GCP_DATABASE_USERNAME_SECRET_VERSION \
-            GCP_DATABASE_PASSWORD_SECRET \
-            GCP_DATABASE_PASSWORD_SECRET_VERSION \
             GCP_CORS_ALLOWED_ORIGINS \
-            GCP_STAGING_AUTH_CALLBACK_URL \
-            GCP_STAGING_AUTH_USER_ID \
-            GCP_STAGING_AUTH_STATION_ID \
-            GCP_STAGING_AUTH_STATION_DISPLAY_NAME \
-            GCP_STAGING_AUTH_PASSWORD_SECRET \
-            GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION
+            GCP_PUBLIC_ANALYSIS_ENABLED \
+            GCP_REQUIRE_EXTERNAL_DATABASE \
+            GCP_STAGING_AUTH_ENABLED
           do
             test -n "${!name:-}" || {
               echo "Missing required GitHub repository variable: $name"
@@ -96,15 +100,29 @@ jobs:
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-          [[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-          [[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-          [[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-          [[ "$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GCP_PUBLIC_ANALYSIS_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
+          [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
           test "$GCP_CORS_ALLOWED_ORIGINS" = "https://chemicheck119.site"
-          [[ "$GCP_STAGING_AUTH_CALLBACK_URL" =~ ^https://chemicheck119\.site(/[^[:space:]]*)?$ ]]
-          [[ "$GCP_STAGING_AUTH_USER_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
-          [[ "$GCP_STAGING_AUTH_STATION_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
+          if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
+            for name in \
+              GCP_DATABASE_URL_SECRET \
+              GCP_DATABASE_URL_SECRET_VERSION \
+              GCP_DATABASE_USERNAME_SECRET \
+              GCP_DATABASE_USERNAME_SECRET_VERSION \
+              GCP_DATABASE_PASSWORD_SECRET \
+              GCP_DATABASE_PASSWORD_SECRET_VERSION
+            do
+              test -n "${!name:-}" || {
+                echo "Missing required external database variable: $name"
+                exit 1
+              }
+            done
+            [[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+            [[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+            [[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          fi
 
       - name: Run backend tests
         run: ./gradlew clean test --no-daemon --console=plain
@@ -181,6 +199,9 @@ jobs:
           GCP_CORS_ALLOWED_ORIGINS: ${{ vars.GCP_CORS_ALLOWED_ORIGINS }}
           GCP_MIN_INSTANCES: ${{ vars.GCP_MIN_INSTANCES }}
           GCP_MAX_INSTANCES: ${{ vars.GCP_MAX_INSTANCES }}
+          GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
+          GCP_REQUIRE_EXTERNAL_DATABASE: ${{ inputs.use_external_database }}
+          GCP_STAGING_AUTH_ENABLED: "false"
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
       - name: Write deployment summary
@@ -195,8 +216,9 @@ jobs:
             echo "- Image: \`${{ steps.image.outputs.image_digest }}\`"
             echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
             echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
-            echo "- Login: \`${{ steps.deploy.outputs.service_url }}/auth/staging/login\`"
+            echo "- Public analysis: \`${{ inputs.public_analysis_enabled }}\`"
+            echo "- External database: \`${{ inputs.use_external_database }}\`"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo
-            echo "> This workflow is staging-only and requires an approved external PostgreSQL database."
+            echo "> External database=false is a temporary E2E mode; Cloud Run restart loses stored incident state."
           } >> "$GITHUB_STEP_SUMMARY"

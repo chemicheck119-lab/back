@@ -14,19 +14,10 @@ required_variables=(
   GCP_MODEL_API_KEY_SECRET_VERSION
   GCP_SESSION_SECRET
   GCP_SESSION_SECRET_VERSION
-  GCP_DATABASE_URL_SECRET
-  GCP_DATABASE_URL_SECRET_VERSION
-  GCP_DATABASE_USERNAME_SECRET
-  GCP_DATABASE_USERNAME_SECRET_VERSION
-  GCP_DATABASE_PASSWORD_SECRET
-  GCP_DATABASE_PASSWORD_SECRET_VERSION
   GCP_CORS_ALLOWED_ORIGINS
-  GCP_STAGING_AUTH_CALLBACK_URL
-  GCP_STAGING_AUTH_USER_ID
-  GCP_STAGING_AUTH_STATION_ID
-  GCP_STAGING_AUTH_STATION_DISPLAY_NAME
-  GCP_STAGING_AUTH_PASSWORD_SECRET
-  GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION
+  GCP_PUBLIC_ANALYSIS_ENABLED
+  GCP_REQUIRE_EXTERNAL_DATABASE
+  GCP_STAGING_AUTH_ENABLED
 )
 for variable_name in "${required_variables[@]}"; do
   test -n "${!variable_name:-}" || {
@@ -47,24 +38,61 @@ test "$maximum_instances" = "1" || {
 }
 [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
 [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-[[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-[[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-[[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
-[[ "$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+[[ "$GCP_PUBLIC_ANALYSIS_ENABLED" =~ ^(true|false)$ ]]
+[[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
+[[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
 [[ "$RELEASE_GIT_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
 [[ "$GCP_MODEL_API_KEY_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
 [[ "$GCP_SESSION_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
-[[ "$GCP_DATABASE_URL_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
-[[ "$GCP_DATABASE_USERNAME_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
-[[ "$GCP_DATABASE_PASSWORD_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
-[[ "$GCP_STAGING_AUTH_PASSWORD_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
 test "$cors_allowed_origins" = "https://chemicheck119.site"
-[[ "$GCP_STAGING_AUTH_CALLBACK_URL" =~ ^https://chemicheck119\.site(/[^[:space:]]*)?$ ]]
-[[ "$GCP_STAGING_AUTH_USER_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
-[[ "$GCP_STAGING_AUTH_STATION_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
-[[ "$GCP_STAGING_AUTH_STATION_DISPLAY_NAME" != *";"* ]]
-[[ "$GCP_STAGING_AUTH_STATION_DISPLAY_NAME" != *$'\n'* ]]
+
+if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
+  database_variables=(
+    GCP_DATABASE_URL_SECRET
+    GCP_DATABASE_URL_SECRET_VERSION
+    GCP_DATABASE_USERNAME_SECRET
+    GCP_DATABASE_USERNAME_SECRET_VERSION
+    GCP_DATABASE_PASSWORD_SECRET
+    GCP_DATABASE_PASSWORD_SECRET_VERSION
+  )
+  for variable_name in "${database_variables[@]}"; do
+    test -n "${!variable_name:-}" || {
+      echo "Missing required external database variable: $variable_name"
+      exit 1
+    }
+  done
+  [[ "$GCP_DATABASE_URL_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+  [[ "$GCP_DATABASE_USERNAME_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+  [[ "$GCP_DATABASE_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+  [[ "$GCP_DATABASE_URL_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_DATABASE_USERNAME_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_DATABASE_PASSWORD_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+fi
+
+if [ "$GCP_STAGING_AUTH_ENABLED" = "true" ]; then
+  staging_auth_variables=(
+    GCP_STAGING_AUTH_CALLBACK_URL
+    GCP_STAGING_AUTH_USER_ID
+    GCP_STAGING_AUTH_STATION_ID
+    GCP_STAGING_AUTH_STATION_DISPLAY_NAME
+    GCP_STAGING_AUTH_PASSWORD_SECRET
+    GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION
+  )
+  for variable_name in "${staging_auth_variables[@]}"; do
+    test -n "${!variable_name:-}" || {
+      echo "Missing required staging auth variable: $variable_name"
+      exit 1
+    }
+  done
+  [[ "$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+  [[ "$GCP_STAGING_AUTH_PASSWORD_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_STAGING_AUTH_CALLBACK_URL" =~ ^https://chemicheck119\.site(/[^[:space:]]*)?$ ]]
+  [[ "$GCP_STAGING_AUTH_USER_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
+  [[ "$GCP_STAGING_AUTH_STATION_ID" =~ ^[A-Za-z0-9_.:@-]{1,128}$ ]]
+  [[ "$GCP_STAGING_AUTH_STATION_DISPLAY_NAME" != *";"* ]]
+  [[ "$GCP_STAGING_AUTH_STATION_DISPLAY_NAME" != *$'\n'* ]]
+fi
 
 expected_image_prefix="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$GCP_ARTIFACT_REPOSITORY/be@sha256:"
 [[ "$IMAGE_DIGEST" == "$expected_image_prefix"* ]]
@@ -99,7 +127,17 @@ PY
 )"
 fi
 
-env_vars="CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=true;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=true;CHEMICHECK119_STAGING_AUTH_CALLBACK_URL=$GCP_STAGING_AUTH_CALLBACK_URL;CHEMICHECK119_STAGING_AUTH_USER_ID=$GCP_STAGING_AUTH_USER_ID;CHEMICHECK119_STAGING_AUTH_STATION_ID=$GCP_STAGING_AUTH_STATION_ID;CHEMICHECK119_STAGING_AUTH_STATION_DISPLAY_NAME=$GCP_STAGING_AUTH_STATION_DISPLAY_NAME;CHEMICHECK119_STAGING_AUTH_ROLES=RESPONDER;CHEMICHECK119_STAGING_AUTH_INCIDENT_SCOPES=*"
+env_vars="CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED"
+secret_bindings="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION"
+
+if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
+  secret_bindings+=",CHEMICHECK119_DATABASE_URL=$GCP_DATABASE_URL_SECRET:$GCP_DATABASE_URL_SECRET_VERSION,CHEMICHECK119_DATABASE_USERNAME=$GCP_DATABASE_USERNAME_SECRET:$GCP_DATABASE_USERNAME_SECRET_VERSION,CHEMICHECK119_DATABASE_PASSWORD=$GCP_DATABASE_PASSWORD_SECRET:$GCP_DATABASE_PASSWORD_SECRET_VERSION"
+fi
+
+if [ "$GCP_STAGING_AUTH_ENABLED" = "true" ]; then
+  env_vars+=";CHEMICHECK119_STAGING_AUTH_CALLBACK_URL=$GCP_STAGING_AUTH_CALLBACK_URL;CHEMICHECK119_STAGING_AUTH_USER_ID=$GCP_STAGING_AUTH_USER_ID;CHEMICHECK119_STAGING_AUTH_STATION_ID=$GCP_STAGING_AUTH_STATION_ID;CHEMICHECK119_STAGING_AUTH_STATION_DISPLAY_NAME=$GCP_STAGING_AUTH_STATION_DISPLAY_NAME;CHEMICHECK119_STAGING_AUTH_ROLES=RESPONDER;CHEMICHECK119_STAGING_AUTH_INCIDENT_SCOPES=*"
+  secret_bindings+=",CHEMICHECK119_STAGING_AUTH_PASSWORD=$GCP_STAGING_AUTH_PASSWORD_SECRET:$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION"
+fi
 
 gcloud run deploy "$GCP_CLOUD_RUN_SERVICE" \
   --project "$GCP_PROJECT_ID" \
@@ -127,7 +165,7 @@ gcloud run deploy "$GCP_CLOUD_RUN_SERVICE" \
   --readiness-probe="httpGet.path=/actuator/health/readiness,httpGet.port=8080,timeoutSeconds=3,periodSeconds=5,failureThreshold=3,successThreshold=1" \
   --update-labels="app=chemicheck119,component=be,environment=staging,git-sha=$RELEASE_GIT_COMMIT" \
   --set-env-vars="^;^$env_vars" \
-  --set-secrets="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION,CHEMICHECK119_DATABASE_URL=$GCP_DATABASE_URL_SECRET:$GCP_DATABASE_URL_SECRET_VERSION,CHEMICHECK119_DATABASE_USERNAME=$GCP_DATABASE_USERNAME_SECRET:$GCP_DATABASE_USERNAME_SECRET_VERSION,CHEMICHECK119_DATABASE_PASSWORD=$GCP_DATABASE_PASSWORD_SECRET:$GCP_DATABASE_PASSWORD_SECRET_VERSION,CHEMICHECK119_STAGING_AUTH_PASSWORD=$GCP_STAGING_AUTH_PASSWORD_SECRET:$GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION" \
+  --set-secrets="$secret_bindings" \
   --quiet
 
 gcloud run services describe "$GCP_CLOUD_RUN_SERVICE" \
@@ -195,14 +233,16 @@ smoke() {
     "$base_url/actuator/health/liveness" \
     | jq --exit-status '.status == "UP"' >/dev/null
 
-  http_code="$(curl --silent --show-error \
-    --output "$health_file" \
-    --write-out '%{http_code}' \
-    "$base_url/auth/staging/login")"
-  if [ "$http_code" != "200" ] || ! grep --quiet 'action="/auth/staging/login"' "$health_file"; then
-    echo "Staging login start smoke failed: HTTP $http_code"
-    rm -f "$health_file"
-    return 1
+  if [ "$GCP_STAGING_AUTH_ENABLED" = "true" ]; then
+    http_code="$(curl --silent --show-error \
+      --output "$health_file" \
+      --write-out '%{http_code}' \
+      "$base_url/auth/staging/login")"
+    if [ "$http_code" != "200" ] || ! grep --quiet 'action="/auth/staging/login"' "$health_file"; then
+      echo "Staging login start smoke failed: HTTP $http_code"
+      rm -f "$health_file"
+      return 1
+    fi
   fi
 
   http_code="$(curl --silent --show-error \
@@ -212,7 +252,36 @@ smoke() {
     --header 'Content-Type: application/json' \
     --data '{"query":"chlorine"}' \
     "$base_url/api/c2guard/v1/substances/discover")"
-  if [ "$http_code" != "401" ] || ! jq --exit-status '.error.code == "AUTH_REQUIRED"' "$health_file" >/dev/null; then
+  if [ "$GCP_PUBLIC_ANALYSIS_ENABLED" = "true" ]; then
+    if [ "$http_code" != "200" ] || ! jq --exit-status \
+      '.schemaVersion == "chemicheck119-dashboard-bff-v1"' "$health_file" >/dev/null; then
+      echo "Public substance discovery smoke failed: HTTP $http_code"
+      rm -f "$health_file"
+      return 1
+    fi
+
+    local request_id="REQ-DEPLOY-${RELEASE_GIT_COMMIT:0:12}"
+    local analyze_request
+    analyze_request="$(jq --null-input --compact-output \
+      --arg incidentId "INC-DEPLOY-${RELEASE_GIT_COMMIT:0:12}" \
+      '{incidentId: $incidentId, text: "염소 누출 사고", inputType: "MANUAL_TEXT", evidenceTopK: 3}')"
+    http_code="$(curl --silent --show-error \
+      --output "$health_file" \
+      --write-out '%{http_code}' \
+      --request POST \
+      --header 'Content-Type: application/json' \
+      --header "X-Request-Id: $request_id" \
+      --data "$analyze_request" \
+      "$base_url/api/c2guard/v1/incidents/analyze")"
+    if [ "$http_code" != "200" ] || ! jq --exit-status --arg requestId "$request_id" \
+      '.schemaVersion == "chemicheck119-dashboard-bff-v1" and .requestId == $requestId' \
+      "$health_file" >/dev/null; then
+      echo "Public FE to BFF to Model API analysis smoke failed: HTTP $http_code"
+      rm -f "$health_file"
+      return 1
+    fi
+  elif [ "$http_code" != "401" ] || ! jq --exit-status \
+    '.error.code == "AUTH_REQUIRED"' "$health_file" >/dev/null; then
     echo "Unauthenticated BFF boundary smoke failed: HTTP $http_code"
     rm -f "$health_file"
     return 1

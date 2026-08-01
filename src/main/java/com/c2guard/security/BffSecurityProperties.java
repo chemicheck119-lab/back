@@ -23,6 +23,7 @@ public class BffSecurityProperties {
     private boolean cookieSecure = true;
     private String cookieSameSite = "Lax";
     private List<String> allowedOrigins = List.of();
+    private boolean publicAnalysisEnabled;
 
     public void setSessionSecret(String sessionSecret) {
         this.sessionSecret = sessionSecret == null ? "" : sessionSecret;
@@ -127,6 +128,14 @@ public class BffSecurityProperties {
             throw new IllegalArgumentException("credential CORS에는 wildcard origin을 사용할 수 없습니다.");
         }
         this.allowedOrigins = normalized;
+    }
+
+    public boolean isPublicAnalysisEnabled() {
+        return publicAnalysisEnabled;
+    }
+
+    public void setPublicAnalysisEnabled(boolean publicAnalysisEnabled) {
+        this.publicAnalysisEnabled = publicAnalysisEnabled;
     }
 
     private String requireText(String value, String name) {
