@@ -50,6 +50,8 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 - `docs/SUBSTANCE_DISCOVERY_BFF.md`
 - `docs/BFF_SECURITY.md`
 - `docs/CONFIRMATION_GATE.md`
+- `docs/INCIDENT_AGENT_MEMORY.md`
+- `docs/CI.md`
 
 현재 `POST /api/c2guard/v1/incidents/analyze`는 FE 요청을 Model API 요청으로 변환하고,
 모델 응답을 확인 gate가 적용된 화면 DTO로 투영합니다. 모든 `/api/**` 요청은 서명된
@@ -62,6 +64,18 @@ FE-BE-AI 통합의 공개 계약과 레거시 전환 정책은 다음 파일을 
 연결하며, 후보 없음·근거 미적재·현장 확인 필요 상태를 그대로 보존합니다.
 
 기능 구현은 `develop`에서 이슈별 feature 브랜치를 분기하고 PR base를 `develop`으로 사용합니다.
+
+## 자동 검증
+
+로컬에서는 다음 명령으로 unit·integration·계약 snapshot 테스트를 모두 실행합니다.
+
+```bash
+./gradlew clean test --no-daemon --console=plain
+```
+
+`develop`·`main` 대상 PR과 push에서는 GitHub Actions `Backend CI`가 같은 명령을 Java 17로
+실행하고 Gradle wrapper와 계약 drift를 함께 검사합니다. CI에는 운영 Secret을 주입하거나
+실제 AI·지도·DB를 호출하지 않습니다.
 
 ## 다음에 할 일 (TODO)
 
