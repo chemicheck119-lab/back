@@ -1,0 +1,153 @@
+name: Backend Cloud Run staging deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_staging:
+        description: develop 커밋을 BE staging에 배포합니다
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backend-cloud-run-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Build, candidate smoke, and blue/green promotion
+    if: ${{ inputs.confirm_staging }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+
+    steps:
+      - name: Check out develop commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate deployment scope and variables
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          GCP_CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          GCP_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_MODEL_API_BASE_URL: ${{ vars.GCP_MODEL_API_BASE_URL }}
+          GCP_MODEL_API_KEY_SECRET: ${{ vars.GCP_MODEL_API_KEY_SECRET }}
+          GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
+          GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
+          GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/develop"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for name in \
+            GCP_PROJECT_ID \
+            GCP_REGION \
+            GCP_ARTIFACT_REPOSITORY \
+            GCP_CLOUD_RUN_SERVICE \
+            GCP_WORKLOAD_IDENTITY_PROVIDER \
+            GCP_DEPLOY_SERVICE_ACCOUNT \
+            GCP_RUNTIME_SERVICE_ACCOUNT \
+            GCP_MODEL_API_BASE_URL \
+            GCP_MODEL_API_KEY_SECRET \
+            GCP_MODEL_API_KEY_SECRET_VERSION \
+            GCP_SESSION_SECRET \
+            GCP_SESSION_SECRET_VERSION
+          do
+            test -n "${!name:-}" || {
+              echo "Missing required GitHub repository variable: $name"
+              exit 1
+            }
+          done
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
+
+      - name: Run backend tests
+        run: ./gradlew clean test --no-daemon --console=plain
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+
+      - name: Build and push immutable backend image
+        id: image
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          registry="$GCP_REGION-docker.pkg.dev"
+          image_tag="$registry/$GCP_PROJECT_ID/$GCP_ARTIFACT_REPOSITORY/be:$GITHUB_SHA"
+
+          gcloud auth configure-docker "$registry" --quiet
+          docker build \
+            --build-arg BUILD_REVISION="$GITHUB_SHA" \
+            --tag "$image_tag" \
+            .
+          test "$(docker image inspect "$image_tag" --format '{{.Config.User}}')" = "10001:10001"
+          test "$(docker image inspect "$image_tag" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          docker push "$image_tag"
+
+          image_digest="$(gcloud artifacts docker images describe "$image_tag" \
+            --project "$GCP_PROJECT_ID" \
+            --format='value(image_summary.fully_qualified_digest)')"
+          expected_prefix="$registry/$GCP_PROJECT_ID/$GCP_ARTIFACT_REPOSITORY/be@sha256:"
+          [[ "$image_digest" == "$expected_prefix"* ]]
+          [[ "$image_digest" =~ @sha256:[0-9a-f]{64}$ ]]
+          echo "image_digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy candidate and promote after smoke
+        id: deploy
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.image_digest }}
+          RELEASE_GIT_COMMIT: ${{ github.sha }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          GCP_CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          GCP_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_MODEL_API_BASE_URL: ${{ vars.GCP_MODEL_API_BASE_URL }}
+          GCP_MODEL_API_KEY_SECRET: ${{ vars.GCP_MODEL_API_KEY_SECRET }}
+          GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
+          GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
+          GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
+          GCP_CORS_ALLOWED_ORIGINS: ${{ vars.GCP_CORS_ALLOWED_ORIGINS }}
+          GCP_MIN_INSTANCES: ${{ vars.GCP_MIN_INSTANCES }}
+          GCP_MAX_INSTANCES: ${{ vars.GCP_MAX_INSTANCES }}
+        run: scripts/deployment/deploy_cloud_run_blue_green.sh
+
+      - name: Write deployment summary
+        shell: bash
+        run: |
+          {
+            echo "## Backend Cloud Run staging deployment"
+            echo
+            echo "- Service: \`${{ vars.GCP_CLOUD_RUN_SERVICE }}\`"
+            echo "- Region: \`${{ vars.GCP_REGION }}\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Image: \`${{ steps.image.outputs.image_digest }}\`"
+            echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
+            echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
+            echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
+            echo
+            echo "> This workflow is staging-only. Process-local incident state is not preserved across revisions."
+          } >> "$GITHUB_STEP_SUMMARY"
