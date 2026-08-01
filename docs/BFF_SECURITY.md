@@ -8,6 +8,12 @@ FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니�
 비활성화된 합성 테스트 계정 adapter를 사용할 수 있습니다. 운영 환경에서는 이를 활성화하지
 않습니다.
 
+공개 FE 통합 검증이 필요한 staging에서는 `CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=true`로
+물질 후보 검색과 사고 분석만 세션 없이 허용할 수 있습니다. BE는 이때 분석 요청에만 고정된
+`public-fe`/`public-staging` 감사 주체를 부여합니다. confirmation, movement, record, session과
+나머지 `/api/**`는 계속 서명 세션을 요구합니다. 기본값은 `false`이며 운영 인증 정책을
+대체하지 않습니다.
+
 세션 payload는 다음 claim을 사용합니다.
 
 | claim | 의미 |
@@ -30,6 +36,8 @@ FE에는 Model API Key 또는 session signing Secret을 전달하지 않습니�
 - `GET /api/c2guard/v1/session`: 인증 사용자·고정 station ID·표시명·역할·사고 scope·만료 반환
 - `POST /api/c2guard/v1/logout`: `CHEMICHECK119_SESSION`을 `Max-Age=0`으로 만료
 - 인증 누락·서명 변조·만료·issuer/audience 불일치: HTTP 401, `AUTH_REQUIRED`
+- 공개 분석 모드에서만 `POST /api/c2guard/v1/substances/discover`와
+  `POST /api/c2guard/v1/incidents/analyze`는 세션 없이 호출 가능
 - 인증 성공 후 incident scope 부족: HTTP 403, `ACCESS_DENIED`
 - 두 오류 모두 `chemicheck119-dashboard-bff-v1`, 동일 request ID,
   `resetAllowed=false`를 반환합니다.
@@ -77,6 +85,7 @@ cookie가 전달됩니다.
 | `CHEMICHECK119_SESSION_COOKIE_SECURE` | `true` | 운영 HTTPS cookie 강제 |
 | `CHEMICHECK119_SESSION_COOKIE_SAME_SITE` | `Lax` | `Lax`, `Strict`, `None` |
 | `CHEMICHECK119_CORS_ALLOWED_ORIGINS` | 없음 | 운영 FE origin allowlist |
+| `CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED` | `false` | staging 공개 FE의 검색·분석 두 API만 익명 허용 |
 
 staging adapter 설정과 로그인 URL은
 [`STAGING_AUTH_ADAPTER.md`](./STAGING_AUTH_ADAPTER.md)를 기준으로 합니다.

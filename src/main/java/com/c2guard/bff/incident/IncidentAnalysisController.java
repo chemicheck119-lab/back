@@ -2,6 +2,7 @@ package com.c2guard.bff.incident;
 
 import com.c2guard.bff.common.BffRequestIdFilter;
 import com.c2guard.security.BffUserPrincipal;
+import com.c2guard.security.PublicAnalysisPrincipalProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -17,9 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class IncidentAnalysisController {
 
     private final IncidentAnalysisBffService service;
+    private final PublicAnalysisPrincipalProvider principalProvider;
 
-    public IncidentAnalysisController(IncidentAnalysisBffService service) {
+    public IncidentAnalysisController(IncidentAnalysisBffService service,
+                                      PublicAnalysisPrincipalProvider principalProvider) {
         this.service = service;
+        this.principalProvider = principalProvider;
     }
 
     @PostMapping(value = "/analyze", consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -27,6 +31,7 @@ public class IncidentAnalysisController {
     public JsonNode analyze(@Valid @RequestBody IncidentAnalyzeRequest request,
                             HttpServletRequest httpRequest,
                             @AuthenticationPrincipal BffUserPrincipal principal) {
-        return service.analyze(request, BffRequestIdFilter.current(httpRequest), principal);
+        return service.analyze(request, BffRequestIdFilter.current(httpRequest),
+                principalProvider.resolve(principal));
     }
 }

@@ -14,9 +14,11 @@ AI staging과 같은 Artifact Registry 및 runtime service account를 재사용�
 | Container repository | `asia-northeast3-docker.pkg.dev/chemi-check/chemicheck119/be` |
 | Runtime service account | `chemicheck119-runtime@chemi-check.iam.gserviceaccount.com` |
 
-Cloud Run 서비스는 공개 invoke를 허용하지만 `/api/**`는 서명된 `CHEMICHECK119_SESSION`
-cookie가 없으면 `401 AUTH_REQUIRED`로 거부한다. Model API Key와 session signing secret은
-Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정 버전을 참조한다.
+Cloud Run 서비스는 공개 invoke를 허용한다. 공개 FE E2E 모드에서는 물질 후보 검색과 사고
+분석만 세션 없이 허용하고, confirmation·movement·record·session을 포함한 나머지 API는
+서명된 `CHEMICHECK119_SESSION` cookie가 없으면 `401 AUTH_REQUIRED`로 거부한다. Model API
+Key와 session signing secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정
+버전을 참조한다.
 
 ## GitHub repository variables
 
@@ -59,14 +61,15 @@ AI 저장소의 provider 조건을 넓히지 않고 BE provider를 별도로 사
 ## 배포와 롤백
 
 Actions에서 `Backend Cloud Run staging deployment`를 `develop` ref로 선택하고
-`confirm_staging=true`로 실행한다. workflow는 다음 순서를 강제한다.
+`confirm_staging=true`, `public_analysis_enabled=true`로 실행한다. Cloud SQL 승인 전 E2E
+배포는 `use_external_database=false`를 사용하며, 이 경우 재시작 시 사고 상태가 사라진다.
+workflow는 다음 순서를 강제한다.
 
 1. `develop` commit 테스트
 2. commit SHA를 OCI revision label로 포함한 non-root 이미지 빌드
 3. Artifact Registry push 후 `image@sha256` digest 확정
 4. 새 Cloud Run revision을 `--no-traffic` candidate tag로 배포
-5. candidate URL에서 PostgreSQL·AI·세션·staging auth readiness, 로그인 시작 페이지,
-   liveness, 익명 API 차단 검사
+5. candidate URL에서 AI·세션 readiness, liveness, 공개 물질 검색과 실제 사고 분석 호출 검사
 6. 새 revision으로 트래픽 100% 원자 전환
 7. stable URL 재검사; 실패하면 직전 revision으로 자동 롤백
 
@@ -83,9 +86,10 @@ gcloud run services update-traffic chemicheck119-be-staging \
 ## 운영 전환 차단 조건
 
 confirmation, incident memory, analysis, movement state와 v1 record는 PostgreSQL/Flyway 저장
-계층으로 전환됐다. staging workflow는 `CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=true`와
-PostgreSQL credential secret을 강제하므로 in-memory H2로 배포할 수 없다. DB 리소스와 secret이
-승인·등록되기 전에는 새 revision 배포가 validation 단계에서 중단된다.
+계층으로 전환됐다. `use_external_database=true` 배포는 PostgreSQL credential secret을
+강제한다. 공개 FE→BE→AI E2E를 먼저 확인하는 임시 staging 배포만
+`use_external_database=false`를 허용하며, 이 모드는 H2를 사용하므로 재시작 또는 scale-to-zero
+후 데이터가 사라진다. 운영 전환과 대응기록 검증에는 사용할 수 없다.
 
 이 workflow는 공유 DB의 부하·동시성·복원 검증이 끝날 때까지 staging 전용이고
 `GCP_MAX_INSTANCES=1`만 허용한다.
