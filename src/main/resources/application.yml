@@ -11,3 +11,27 @@ spring:
       charset: UTF-8
       enabled: true
       force: true
+
+chemicheck119:
+  model-api:
+    base-url: ${CHEMICHECK119_MODEL_API_BASE_URL:http://localhost:8000}
+    api-key: ${CHEMICHECK119_MODEL_API_KEY:}
+    schema: ${CHEMICHECK119_MODEL_API_SCHEMA:chemiguard119-api-v1}
+    connect-timeout: ${CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS:2}s
+    response-timeout: ${CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS:15}s
+    max-retries: ${CHEMICHECK119_MODEL_API_MAX_RETRIES:1}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,modelApi
+  endpoints:
+    web:
+      exposure:
+        include: health,info
