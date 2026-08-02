@@ -64,7 +64,8 @@ AI 저장소의 provider 조건을 넓히지 않고 BE provider를 별도로 사
 ## 배포와 롤백
 
 Actions에서 `Backend Cloud Run staging deployment`를 `develop` ref로 선택하고
-`confirm_staging=true`, `public_analysis_enabled=true`로 실행한다. staging은 승인된 Cloud SQL과
+`confirm_staging=true`, `public_analysis_enabled=true`,
+`public_incident_replay_enabled=true`로 실행한다. staging은 승인된 Cloud SQL과
 Direct VPC egress를 항상 사용하며 메모리 DB 배포를 허용하지 않는다. workflow는 다음 순서를
 강제한다.
 
@@ -72,7 +73,8 @@ Direct VPC egress를 항상 사용하며 메모리 DB 배포를 허용하지 않
 2. commit SHA를 OCI revision label로 포함한 non-root 이미지 빌드
 3. Artifact Registry push 후 `image@sha256` digest 확정
 4. 새 Cloud Run revision을 `--no-traffic` candidate tag로 배포
-5. candidate URL에서 AI·세션 readiness, liveness, 공개 물질 검색과 실제 사고 분석 호출 검사
+5. candidate URL에서 AI·세션 readiness, liveness, 공개 물질 검색·실제 사고 분석·공개 합성
+   지령 SSE의 출처/PII 경계 검사
 6. 새 revision으로 트래픽 100% 원자 전환
 7. stable URL 재검사; 실패하면 직전 revision으로 자동 롤백
 

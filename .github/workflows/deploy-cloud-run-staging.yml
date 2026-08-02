@@ -13,6 +13,11 @@ on:
         required: true
         type: boolean
         default: true
+      public_incident_replay_enabled:
+        description: 공개 합성 지령 SSE를 staging에서 세션 없이 허용합니다
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -66,6 +71,7 @@ jobs:
           GCP_STAGING_AUTH_PASSWORD_SECRET: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET }}
           GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION: ${{ vars.GCP_STAGING_AUTH_PASSWORD_SECRET_VERSION }}
           GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
+          GCP_PUBLIC_INCIDENT_REPLAY_ENABLED: ${{ inputs.public_incident_replay_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: "false"
         run: |
@@ -87,6 +93,7 @@ jobs:
             GCP_SESSION_SECRET_VERSION \
             GCP_CORS_ALLOWED_ORIGINS \
             GCP_PUBLIC_ANALYSIS_ENABLED \
+            GCP_PUBLIC_INCIDENT_REPLAY_ENABLED \
             GCP_REQUIRE_EXTERNAL_DATABASE \
             GCP_STAGING_AUTH_ENABLED
           do
@@ -99,6 +106,7 @@ jobs:
           [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_PUBLIC_ANALYSIS_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
           [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
@@ -207,6 +215,7 @@ jobs:
           GCP_MIN_INSTANCES: ${{ vars.GCP_MIN_INSTANCES }}
           GCP_MAX_INSTANCES: ${{ vars.GCP_MAX_INSTANCES }}
           GCP_PUBLIC_ANALYSIS_ENABLED: ${{ inputs.public_analysis_enabled }}
+          GCP_PUBLIC_INCIDENT_REPLAY_ENABLED: ${{ inputs.public_incident_replay_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: "false"
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
@@ -224,6 +233,7 @@ jobs:
             echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
             echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
             echo "- Public analysis: \`${{ inputs.public_analysis_enabled }}\`"
+            echo "- Public incident replay: \`${{ inputs.public_incident_replay_enabled }}\`"
             echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo
