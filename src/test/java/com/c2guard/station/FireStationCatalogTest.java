@@ -15,7 +15,7 @@ class FireStationCatalogTest {
         FireStationCatalog.CatalogResponse response = catalog.response();
         assertEquals("chemicheck119-fire-station-catalog-v1", response.schemaVersion());
         assertEquals(17, response.regions().size());
-        assertEquals("서울", response.regions().getFirst().regionName());
+        assertEquals("서울", response.regions().get(0).regionName());
         assertEquals(215, response.regions().stream()
                 .mapToInt(region -> region.stations().size()).sum());
 
