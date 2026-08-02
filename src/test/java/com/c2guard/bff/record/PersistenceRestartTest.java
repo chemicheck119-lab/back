@@ -96,7 +96,12 @@ class PersistenceRestartTest {
                         "MSG-RESTART", 1, RecordSaveRequest.MessageRole.ASSISTANT,
                         "저장 후 재시작 복구 확인", OffsetDateTime.parse(
                         "2026-08-01T11:51:00Z"), "ANL-RESTART")),
-                List.of("ANL-RESTART"), List.of());
+                List.of("ANL-RESTART"), List.of(),
+                new StructuredIncidentOutcome("재시작 테스트 시설", null,
+                        List.of(StructuredIncidentOutcome.PerformedAction.ZONE_CONTROL),
+                        StructuredIncidentOutcome.BriefApplicationStatus.NOT_REVIEWED,
+                        List.of(),
+                        StructuredIncidentOutcome.FinalResponseOutcome.MONITORING_CONTINUES));
     }
 
     private BffUserPrincipal principal() {

@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.c2guard.security.BffTestSession.responder;
@@ -81,16 +82,22 @@ class RecordSaveControllerTest {
             throws Exception {
         String incidentId = "INC-RECORD-CREATE";
         String analysisId = "ANL-RECORD-CREATE";
-        String confirmationId = "CNF-RECORD-CREATE";
-        seedAnalysis(incidentId, analysisId);
-        seedConfirmation(incidentId, confirmationId);
+        String incidentConfirmationId = "CNF-RECORD-CREATE-INCIDENT";
+        String facilityConfirmationId = "CNF-RECORD-CREATE-FACILITY";
+        seedAnalysisWithConflict(incidentId, analysisId);
+        when(confirmationIdGenerator.nextId()).thenReturn(
+                incidentConfirmationId, facilityConfirmationId);
+        seedConfirmation(incidentId, "INCIDENT", "7681-52-9",
+                "차아염소산나트륨");
+        seedConfirmation(incidentId, "FACILITY", "7647-01-0", "염산");
         when(recordIdGenerator.nextId()).thenReturn("REC-RECORD-CREATE");
 
         mockMvc.perform(post(path(incidentId))
                         .cookie(responder(tokenService, incidentId))
                         .header("X-Request-Id", "REQ-RECORD-CREATE")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request(analysisId, confirmationId)))
+                        .content(requestWithConfirmations(analysisId, List.of(
+                                incidentConfirmationId, facilityConfirmationId))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.schemaVersion")
                         .value("chemicheck119-dashboard-bff-v1"))
@@ -106,7 +113,33 @@ class RecordSaveControllerTest {
         assertEquals("fire-station-119", stored.savedByOrganizationId());
         assertEquals(2, recordStore.messageCount(stored.recordId()));
         assertEquals(1, count("response_record_analyses", stored.recordId()));
-        assertEquals(1, count("response_record_confirmations", stored.recordId()));
+        assertEquals(2, count("response_record_confirmations", stored.recordId()));
+        assertEquals(2, count("incident_response_actions", stored.recordId()));
+        assertEquals(1, count("incident_additional_factors", stored.recordId()));
+        assertEquals(1, count("incident_conflict_risks", stored.recordId()));
+        assertEquals(2, count("incident_conflict_hazards", stored.recordId()));
+        assertEquals(1, count("incident_conflict_gas_products", stored.recordId()));
+
+        Map<String, Object> summary = jdbcTemplate.queryForMap("""
+                SELECT facility_name, incident_substance_name,
+                       incident_substance_cas, brief_application_status,
+                       final_response_outcome
+                FROM incident_response_summaries WHERE record_id = ?
+                """, stored.recordId());
+        assertEquals("울산 화학공장", summary.get("facility_name"));
+        assertEquals("차아염소산나트륨", summary.get("incident_substance_name"));
+        assertEquals("7681-52-9", summary.get("incident_substance_cas"));
+        assertEquals("APPLIED", summary.get("brief_application_status"));
+        assertEquals("SPREAD_CONTAINED", summary.get("final_response_outcome"));
+        Map<String, Object> risk = jdbcTemplate.queryForMap("""
+                SELECT facility_substance_name, facility_substance_cas,
+                       risk_level, risk_level_ko
+                FROM incident_conflict_risks WHERE record_id = ?
+                """, stored.recordId());
+        assertEquals("염산", risk.get("facility_substance_name"));
+        assertEquals("7647-01-0", risk.get("facility_substance_cas"));
+        assertEquals("HIGH", risk.get("risk_level"));
+        assertEquals("높음", risk.get("risk_level_ko"));
 
         ResponseRecordStore recreated = new ResponseRecordStore(jdbcTemplate,
                 new TransactionTemplate(transactionManager), objectMapper,
@@ -177,6 +210,24 @@ class RecordSaveControllerTest {
     }
 
     @Test
+    void rejectsARecordWithoutTheStructuredOutcomeReport() throws Exception {
+        String incidentId = "INC-RECORD-NO-OUTCOME";
+        String analysisId = "ANL-RECORD-NO-OUTCOME";
+        seedAnalysis(incidentId, analysisId);
+        ObjectNode body = (ObjectNode) objectMapper.readTree(request(analysisId, null));
+        body.remove("outcomeReport");
+
+        mockMvc.perform(post(path(incidentId))
+                        .cookie(responder(tokenService, incidentId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+
+        verifyNoInteractions(recordIdGenerator);
+    }
+
+    @Test
     void rollsBackTheParentWhenAChildInsertFails() {
         String incidentId = "INC-RECORD-ROLLBACK";
         String analysisId = "ANL-RECORD-ROLLBACK";
@@ -186,7 +237,7 @@ class RecordSaveControllerTest {
                 List.of(
                         message("MSG-ROLLBACK", 1, analysisId),
                         message("MSG-ROLLBACK", 2, analysisId)),
-                List.of(analysisId), List.of());
+                List.of(analysisId), List.of(), outcome());
         BffUserPrincipal principal = new BffUserPrincipal("responder-rollback",
                 "fire-station-119", Set.of(BffRole.RESPONDER), Set.of(incidentId),
                 "SID-ROLLBACK", Instant.now().minusSeconds(10),
@@ -222,22 +273,44 @@ class RecordSaveControllerTest {
                 source, source, source);
     }
 
-    private void seedConfirmation(String incidentId, String confirmationId)
+    private void seedAnalysisWithConflict(String incidentId, String analysisId) {
+        ObjectNode bff = objectMapper.createObjectNode();
+        ObjectNode review = bff.putObject("conflictReview");
+        review.put("executed", true);
+        ObjectNode result = review.putObject("result");
+        result.put("kind", "ORDINAL_SCREENING_RESULT");
+        result.put("incidentCas", "7681-52-9");
+        result.put("facilityCas", "7647-01-0");
+        result.put("ruleId", "CAMEO-REACTIVE-GROUP-COMPATIBILITY-MATRIX");
+        result.put("ruleVersion", "RUNTIME-MANIFEST-1");
+        result.put("severity", "HIGH_RISK");
+        result.put("riskLevel", "HIGH");
+        result.put("riskLevelKo", "높음");
+        result.put("briefText", "산성 물질과 접촉하면 독성 염소가스가 발생할 수 있습니다.");
+        result.put("expertReviewed", false);
+        result.put("humanConfirmationRequired", true);
+        result.putArray("hazardCodes").add("C").add("T");
+        result.putArray("gasProducts").add("Cl2");
+        analysisStore.save(incidentId, analysisId, "REQ-" + analysisId,
+                objectMapper.createObjectNode(), bff, objectMapper.createObjectNode());
+    }
+
+    private void seedConfirmation(String incidentId, String role, String casNumber,
+                                  String displayName)
             throws Exception {
-        when(confirmationIdGenerator.nextId()).thenReturn(confirmationId);
         mockMvc.perform(post("/api/c2guard/v1/incidents/" + incidentId
                         + "/confirmations")
                         .cookie(responder(tokenService, incidentId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "role": "INCIDENT",
-                                  "casNumber": "7681-52-9",
-                                  "displayName": "차아염소산나트륨",
+                                  "role": "%s",
+                                  "casNumber": "%s",
+                                  "displayName": "%s",
                                   "confirmationBasis": "CONTAINER_LABEL",
                                   "observedAt": "2026-07-31T14:25:00+09:00"
                                 }
-                                """))
+                                """.formatted(role, casNumber, displayName)))
                 .andExpect(status().isCreated());
     }
 
@@ -253,8 +326,15 @@ class RecordSaveControllerTest {
     }
 
     private String request(String analysisId, String confirmationId) {
-        String confirmations = confirmationId == null
-                ? "[]" : "[\"" + confirmationId + "\"]";
+        return requestWithConfirmations(analysisId, confirmationId == null
+                ? List.of() : List.of(confirmationId));
+    }
+
+    private String requestWithConfirmations(
+            String analysisId, List<String> confirmationIds) {
+        String confirmations = confirmationIds.stream()
+                .map(value -> "\"" + value + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
         return """
                 {
                   "conversationStartedAt": "2026-07-31T14:20:00+09:00",
@@ -277,8 +357,25 @@ class RecordSaveControllerTest {
                     }
                   ],
                   "analysisIds": ["%s"],
-                  "confirmationIds": %s
+                  "confirmationIds": %s,
+                  "outcomeReport": {
+                    "facilityName": "울산 화학공장",
+                    "facilityAddress": "울산광역시 남구 산업로 119",
+                    "performedActions": ["ZONE_CONTROL", "LEAK_SOURCE_CONTROL"],
+                    "briefApplicationStatus": "APPLIED",
+                    "additionalFactors": ["ENCLOSED_SPACE"],
+                    "finalResponseOutcome": "SPREAD_CONTAINED"
+                  }
                 }
                 """.formatted(analysisId, analysisId, confirmations);
+    }
+
+    private StructuredIncidentOutcome outcome() {
+        return new StructuredIncidentOutcome("울산 화학공장",
+                "울산광역시 남구 산업로 119",
+                List.of(StructuredIncidentOutcome.PerformedAction.ZONE_CONTROL),
+                StructuredIncidentOutcome.BriefApplicationStatus.APPLIED,
+                List.of(StructuredIncidentOutcome.AdditionalFactor.ENCLOSED_SPACE),
+                StructuredIncidentOutcome.FinalResponseOutcome.SPREAD_CONTAINED);
     }
 }

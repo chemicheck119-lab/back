@@ -60,6 +60,7 @@ public class RecordSaveService {
         incidentAccessPolicy.requireAccess(principal, incidentId);
         validateConversation(request);
         validateMessageReferences(request, request.analysisIds());
+        validateOutcome(request.outcomeReport());
         try {
             List<IncidentAnalysisSnapshotStore.Snapshot> analyses =
                     validateAnalyses(incidentId, request.analysisIds());
@@ -145,6 +146,28 @@ public class RecordSaveService {
             if (message.analysisId() != null && !allowed.contains(message.analysisId())) {
                 throw referenceConflict();
             }
+        }
+    }
+
+    private void validateOutcome(StructuredIncidentOutcome outcome) {
+        if (outcome == null || outcome.facilityName() == null
+                || outcome.facilityName().isBlank()) {
+            throw new IllegalArgumentException("사고시설을 입력해야 합니다.");
+        }
+        if (outcome.performedActions() == null
+                || outcome.performedActions().isEmpty()
+                || new HashSet<>(outcome.performedActions()).size()
+                != outcome.performedActions().size()) {
+            throw new IllegalArgumentException("실제 수행 대응은 중복 없이 하나 이상이어야 합니다.");
+        }
+        if (outcome.additionalFactors() == null
+                || new HashSet<>(outcome.additionalFactors()).size()
+                != outcome.additionalFactors().size()) {
+            throw new IllegalArgumentException("추가 발견 요인은 중복될 수 없습니다.");
+        }
+        if (outcome.briefApplicationStatus() == null
+                || outcome.finalResponseOutcome() == null) {
+            throw new IllegalArgumentException("브리프 적용 여부와 최종 대응 결과가 필요합니다.");
         }
     }
 

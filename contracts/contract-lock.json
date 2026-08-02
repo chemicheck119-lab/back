@@ -20,7 +20,7 @@
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "7f45f56e1cc44d3a42116dbbc5871d29756700a9a216ddb2d4977bf701bf0e6a",
+      "sha256": "5ce3832e3d1163137d9e560224fd0f24a7167b46faaa1b0e39741a904bffbc52",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
@@ -28,7 +28,8 @@
         "Model API connect timeout is 2 seconds",
         "Model API response timeout is 15 seconds",
         "BE-owned authenticated session context and logout routes are published",
-        "Session context may include a public NFA fire-station coordinate as a station fallback position"
+        "Session context may include a public NFA fire-station coordinate as a station fallback position",
+        "Record save requires coded field outcomes and BE derives incident substance and RuleEngine risk facts from authoritative snapshots"
       ]
     },
     {

@@ -71,7 +71,15 @@ class RecordSaveServiceTest {
                 List.of(new RecordSaveRequest.ConversationMessage(
                         "MSG-DB-DOWN", 1, RecordSaveRequest.MessageRole.USER,
                         "저장 테스트", OffsetDateTime.parse("2026-08-01T11:51:00Z"),
-                        null)), List.of("ANL-DB-DOWN"), List.of());
+                        null)), List.of("ANL-DB-DOWN"), List.of(), outcome());
+    }
+
+    private StructuredIncidentOutcome outcome() {
+        return new StructuredIncidentOutcome("테스트 공장", "울산광역시",
+                List.of(StructuredIncidentOutcome.PerformedAction.ZONE_CONTROL),
+                StructuredIncidentOutcome.BriefApplicationStatus.APPLIED,
+                List.of(),
+                StructuredIncidentOutcome.FinalResponseOutcome.SPREAD_CONTAINED);
     }
 
     private BffUserPrincipal principal() {

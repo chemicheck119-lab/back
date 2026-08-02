@@ -32,6 +32,15 @@ class RecordFingerprint {
         for (String confirmationId : request.confirmationIds()) {
             add(digest, confirmationId);
         }
+        StructuredIncidentOutcome outcome = request.outcomeReport();
+        add(digest, outcome.facilityName());
+        add(digest, outcome.facilityAddress());
+        outcome.performedActions().stream().map(Enum::name).sorted()
+                .forEach(value -> add(digest, value));
+        add(digest, outcome.briefApplicationStatus().name());
+        outcome.additionalFactors().stream().map(Enum::name).sorted()
+                .forEach(value -> add(digest, value));
+        add(digest, outcome.finalResponseOutcome().name());
         return java.util.HexFormat.of().formatHex(digest.digest());
     }
 

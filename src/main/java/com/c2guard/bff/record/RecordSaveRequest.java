@@ -20,7 +20,8 @@ public record RecordSaveRequest(
         @NotNull @Size(min = 1, max = 100)
         List<@NotBlank @Size(max = 128) String> analysisIds,
         @NotNull @Size(max = 20)
-        List<@NotBlank @Size(max = 128) String> confirmationIds
+        List<@NotBlank @Size(max = 128) String> confirmationIds,
+        @NotNull @Valid StructuredIncidentOutcome outcomeReport
 ) {
     public enum MessageRole {
         USER,

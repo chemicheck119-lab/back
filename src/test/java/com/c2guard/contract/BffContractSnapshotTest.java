@@ -80,6 +80,32 @@ class BffContractSnapshotTest {
     }
 
     @Test
+    void recordContractRequiresCodedStructuredOutcomeFields() throws IOException {
+        JsonNode schemas = read(BFF_CONTRACT).path("components").path("schemas");
+        JsonNode request = schemas.path("DashboardRecordSaveRequest");
+        assertTrue(jsonTextSet(request.path("required")).contains("outcomeReport"));
+        assertEquals("#/components/schemas/DashboardStructuredIncidentOutcome",
+                request.path("properties").path("outcomeReport").path("$ref").asText());
+
+        JsonNode outcome = schemas.path("DashboardStructuredIncidentOutcome");
+        assertEquals(Set.of("facilityName", "performedActions",
+                        "briefApplicationStatus", "additionalFactors",
+                        "finalResponseOutcome"),
+                jsonTextSet(outcome.path("required")));
+        assertTrue(outcome.path("properties").path("performedActions")
+                .path("uniqueItems").asBoolean());
+        assertTrue(outcome.path("properties").path("additionalFactors")
+                .path("uniqueItems").asBoolean());
+
+        JsonNode fixture = read(Path.of(
+                "contracts/examples/bff/record_save_request.json"));
+        assertEquals("APPLIED", fixture.path("outcomeReport")
+                .path("briefApplicationStatus").asText());
+        assertEquals("SPREAD_CONTAINED", fixture.path("outcomeReport")
+                .path("finalResponseOutcome").asText());
+    }
+
+    @Test
     void publicIncidentReplayContractCannotBeMistakenForAuthorizedDispatch()
             throws IOException {
         JsonNode contract = read(INCIDENT_REPLAY_CONTRACT);

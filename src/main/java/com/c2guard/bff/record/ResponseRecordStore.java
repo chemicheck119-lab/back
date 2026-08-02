@@ -29,6 +29,8 @@ public class ResponseRecordStore {
     private final ObjectMapper objectMapper;
     private final RecordIdGenerator idGenerator;
     private final Clock clock;
+    private final StructuredIncidentRecordProjector structuredProjector =
+            new StructuredIncidentRecordProjector();
 
     public ResponseRecordStore(JdbcTemplate jdbcTemplate,
                                TransactionTemplate transactionTemplate,
@@ -55,6 +57,8 @@ public class ResponseRecordStore {
         if (existing.isPresent()) {
             return existing.get();
         }
+        StructuredIncidentRecordProjector.Projection structured =
+                structuredProjector.project(analyses, confirmations);
         for (int attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
             String recordId = idGenerator.nextId();
             OffsetDateTime savedAt = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
@@ -70,6 +74,8 @@ public class ResponseRecordStore {
                     insertAnalyses(recordId, analyses);
                     insertConfirmations(recordId, confirmations);
                     insertMovement(recordId, movementContext, movementState);
+                    insertStructuredOutcome(recordId, incidentId,
+                            request.outcomeReport(), structured, savedAt);
                     return new StoredResponseRecord(recordId, incidentId, fingerprint,
                             request.conversationStartedAt(), principal.userId(),
                             principal.organizationId(), requestId, savedAt,
@@ -221,6 +227,82 @@ public class ResponseRecordStore {
                         ) VALUES (?, ?, ?)
                         """, recordId, context.map(this::json).orElse(null),
                 state.map(this::json).orElse(null));
+    }
+
+    private void insertStructuredOutcome(
+            String recordId,
+            String incidentId,
+            StructuredIncidentOutcome outcome,
+            StructuredIncidentRecordProjector.Projection structured,
+            OffsetDateTime structuredAt) {
+        jdbcTemplate.update("""
+                        INSERT INTO incident_response_summaries (
+                            record_id, incident_id, facility_name, facility_address,
+                            incident_substance_name, incident_substance_cas,
+                            brief_application_status, final_response_outcome,
+                            structured_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, recordId, incidentId, outcome.facilityName().trim(),
+                blankToNull(outcome.facilityAddress()),
+                structured.incidentSubstanceName(), structured.incidentSubstanceCas(),
+                outcome.briefApplicationStatus().name(),
+                outcome.finalResponseOutcome().name(), structuredAt);
+        for (int index = 0; index < outcome.performedActions().size(); index++) {
+            jdbcTemplate.update("""
+                            INSERT INTO incident_response_actions (
+                                record_id, action_code, action_order
+                            ) VALUES (?, ?, ?)
+                            """, recordId, outcome.performedActions().get(index).name(),
+                    index + 1);
+        }
+        for (int index = 0; index < outcome.additionalFactors().size(); index++) {
+            jdbcTemplate.update("""
+                            INSERT INTO incident_additional_factors (
+                                record_id, factor_code, factor_order
+                            ) VALUES (?, ?, ?)
+                            """, recordId, outcome.additionalFactors().get(index).name(),
+                    index + 1);
+        }
+        insertConflictRisk(recordId, structured.conflictRisk());
+    }
+
+    private void insertConflictRisk(
+            String recordId,
+            StructuredIncidentRecordProjector.ConflictRisk risk) {
+        if (risk == null) return;
+        jdbcTemplate.update("""
+                        INSERT INTO incident_conflict_risks (
+                            record_id, analysis_id, incident_cas,
+                            facility_substance_name, facility_substance_cas,
+                            rule_id, rule_version, severity, risk_level,
+                            risk_level_ko, brief_text, expert_reviewed,
+                            human_confirmation_required
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, recordId, risk.analysisId(), risk.incidentCas(),
+                risk.facilitySubstanceName(), risk.facilitySubstanceCas(),
+                risk.ruleId(), risk.ruleVersion(), risk.severity(), risk.riskLevel(),
+                risk.riskLevelKo(), risk.briefText(), risk.expertReviewed(),
+                risk.humanConfirmationRequired());
+        for (int index = 0; index < risk.hazardCodes().size(); index++) {
+            jdbcTemplate.update("""
+                            INSERT INTO incident_conflict_hazards (
+                                record_id, hazard_code, hazard_order
+                            ) VALUES (?, ?, ?)
+                            """, recordId, risk.hazardCodes().get(index), index + 1);
+        }
+        for (int index = 0; index < risk.gasProducts().size(); index++) {
+            jdbcTemplate.update("""
+                            INSERT INTO incident_conflict_gas_products (
+                                record_id, gas_product, product_order
+                            ) VALUES (?, ?, ?)
+                            """, recordId, risk.gasProducts().get(index), index + 1);
+        }
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String json(Object value) {
