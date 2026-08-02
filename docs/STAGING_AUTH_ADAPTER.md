@@ -9,12 +9,12 @@
 로그인 시작 URL은 다음과 같다.
 
 ```text
-https://api.chemicheck119.site/auth/staging/login
+https://chemicheck119.site/auth/staging/login
 ```
 
-custom domain 적용 전에는 BE Cloud Run stable URL 뒤에 `/auth/staging/login`을 붙일 수 있지만,
-`run.app`과 `chemicheck119.site` 사이의 cross-site cookie 제한 때문에 브라우저별 동작을 보장하지
-않는다. FE·BFF·인증을 같은 `chemicheck119.site` site 아래에 두는 구성이 기준이다.
+Firebase Hosting이 `/auth/**`와 `/api/**`를 BE Cloud Run으로 rewrite한다. Cloud Run stable URL을
+브라우저에서 직접 사용하면 `run.app`과 `chemicheck119.site` 사이의 cross-site cookie가 되므로
+운영 파일럿의 브라우저 계약은 같은 출처인 `chemicheck119.site`만 사용한다.
 
 ## 흐름
 
@@ -52,10 +52,10 @@ enabled인데 callback·계정·station·password가 불완전하면 `stagingAut
 
 ```text
 FE origin: https://chemicheck119.site
-로그인 시작: https://api.chemicheck119.site/auth/staging/login
+로그인 시작: https://chemicheck119.site/auth/staging/login
 callback: https://chemicheck119.site
-session: GET https://api.chemicheck119.site/api/c2guard/v1/session
-logout: POST https://api.chemicheck119.site/api/c2guard/v1/logout
+session: GET https://chemicheck119.site/api/c2guard/v1/session
+logout: POST https://chemicheck119.site/api/c2guard/v1/logout
 cookie: __session; Path=/; HttpOnly; Secure; SameSite=Lax; 기본 만료 8시간
 ```
 
