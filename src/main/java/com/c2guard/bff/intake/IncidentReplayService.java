@@ -18,13 +18,16 @@ public class IncidentReplayService {
     private static final Logger log = LoggerFactory.getLogger(IncidentReplayService.class);
     private final IncidentReplayProperties properties;
     private final IncidentReplayCatalog catalog;
+    private final SyntheticIncidentReplayRegistry registry;
     private final ScheduledExecutorService executor;
 
     public IncidentReplayService(IncidentReplayProperties properties,
                                  IncidentReplayCatalog catalog,
+                                 SyntheticIncidentReplayRegistry registry,
                                  ScheduledExecutorService incidentReplayExecutor) {
         this.properties = properties;
         this.catalog = catalog;
+        this.registry = registry;
         this.executor = incidentReplayExecutor;
     }
 
@@ -61,6 +64,7 @@ public class IncidentReplayService {
                     .name("incident.accepted")
                     .reconnectTime(5000L)
                     .data(envelope));
+            registry.register(envelope);
             log.info("incident_replay_event requestId={} sourceEventId={} classification={} pii={}",
                     envelope.requestId(), envelope.sourceEventId(),
                     envelope.dataClassification(), envelope.containsPersonalInformation());

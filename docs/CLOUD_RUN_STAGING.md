@@ -65,7 +65,8 @@ AI 저장소의 provider 조건을 넓히지 않고 BE provider를 별도로 사
 
 Actions에서 `Backend Cloud Run staging deployment`를 `develop` ref로 선택하고
 `confirm_staging=true`, `public_analysis_enabled=true`,
-`public_incident_replay_enabled=true`로 실행한다. staging은 승인된 Cloud SQL과
+`public_incident_replay_enabled=true`, `public_synthetic_confirmation_enabled=true`로 실행한다.
+staging은 승인된 Cloud SQL과
 Direct VPC egress를 항상 사용하며 메모리 DB 배포를 허용하지 않는다. workflow는 다음 순서를
 강제한다.
 

@@ -66,6 +66,11 @@ public class BffSecurityConfiguration {
                             && replayProperties.isPublicEndpointEnabled()) {
                         authorize.requestMatchers(HttpMethod.GET,
                                 "/api/c2guard/v1/intake/replay-stream/*").permitAll();
+                        if (replayProperties.isSyntheticConfirmationEnabled()) {
+                            authorize.requestMatchers(HttpMethod.POST,
+                                    "/api/c2guard/v1/intake/replays/*/confirmations/*")
+                                    .permitAll();
+                        }
                     }
                     authorize
                             .requestMatchers("/api/c2guard/v1/incidents/*/**")

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "chemicheck119-synthetic-replay-confirmation-v1",
+  "requestId": "REQ-PUBLIC-SYNTHETIC-CONFIRM-001",
+  "incidentId": "INC-PUBLIC-20260802030405678-example",
+  "confirmationId": "CFM-PUBLIC-SYNTHETIC-001",
+  "role": "INCIDENT",
+  "casNumber": "7681-52-9",
+  "displayName": "차아염소산나트륨",
+  "dataClassification": "PUBLIC_SYNTHETIC",
+  "confirmationType": "SYNTHETIC_DEMO_CONFIRMATION",
+  "createdAt": "2026-08-02T03:04:06Z",
+  "confirmedCount": 1,
+  "allRequiredConfirmed": false,
+  "reanalyzeRequired": true,
+  "disclosure": "실제 대원 확인이 아닌 공개 합성 시연용 현장 확인입니다. 운영 판단에 사용할 수 없습니다."
+}
