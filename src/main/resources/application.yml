@@ -67,6 +67,9 @@ chemicheck119:
     require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
 
 management:
+  info:
+    env:
+      enabled: true
   endpoint:
     health:
       probes:
@@ -80,3 +83,11 @@ management:
     web:
       exposure:
         include: health,info
+
+info:
+  application:
+    name: ${spring.application.name}
+    version: ${CHEMICHECK119_RELEASE_VERSION:0.0.1-SNAPSHOT}
+  release:
+    gitCommit: ${CHEMICHECK119_RELEASE_GIT_COMMIT:unknown}
+    environment: ${CHEMICHECK119_RELEASE_ENVIRONMENT:local}

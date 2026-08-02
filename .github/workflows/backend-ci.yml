@@ -132,6 +132,8 @@ jobs:
             --name "${CONTAINER_NAME}" \
             --publish 127.0.0.1:18080:8080 \
             --env CHEMICHECK119_SESSION_SECRET=ci-only-session-secret-at-least-32-bytes-long \
+            --env CHEMICHECK119_RELEASE_GIT_COMMIT="${GITHUB_SHA}" \
+            --env CHEMICHECK119_RELEASE_ENVIRONMENT=ci \
             "${IMAGE_TAG}"
 
           for attempt in $(seq 1 45); do
@@ -150,6 +152,10 @@ jobs:
           curl --fail --silent --show-error \
             http://127.0.0.1:18080/actuator/health/liveness \
             | jq --exit-status '.status == "UP"'
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18080/actuator/info \
+            | jq --exit-status --arg gitCommit "${GITHUB_SHA}" \
+              '.release.gitCommit == $gitCommit and .release.environment == "ci"'
 
           readiness_status="$(curl --silent --output /tmp/readiness.json \
             --write-out '%{http_code}' \
