@@ -1,6 +1,7 @@
 package com.c2guard.security;
 
 import com.c2guard.bff.common.BffRequestIdFilter;
+import com.c2guard.station.FireStationCatalog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -16,16 +17,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class SessionController {
 
     private final BffSessionCookieService cookieService;
+    private final FireStationCatalog stationCatalog;
 
-    public SessionController(BffSessionCookieService cookieService) {
+    public SessionController(BffSessionCookieService cookieService,
+                             FireStationCatalog stationCatalog) {
         this.cookieService = cookieService;
+        this.stationCatalog = stationCatalog;
     }
 
     @GetMapping("/session")
     public SessionContextResponse session(
             HttpServletRequest request,
             @AuthenticationPrincipal BffUserPrincipal principal) {
-        return new SessionContextResponse(BffRequestIdFilter.current(request), principal);
+        return new SessionContextResponse(BffRequestIdFilter.current(request), principal,
+                stationCatalog.find(principal.organizationId()).orElse(null));
     }
 
     @PostMapping("/logout")

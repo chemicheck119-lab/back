@@ -19,12 +19,13 @@ Firebase Hosting이 `/auth/**`와 `/api/**`를 BE Cloud Run으로 rewrite한다.
 
 ## 흐름
 
-1. 공개 파일럿이 활성화되면 FE가 같은 출처의 `/auth/staging/pilot`에 POST한다.
-2. BE는 callback과 동일한 HTTPS Origin인지 검사한다.
-3. 제한된 고정 user·station·role을 담은 HS256 `__session` cookie를 발급한다.
-4. 서버 allowlist의 고정 HTTPS callback으로만 303 redirect한다.
-5. FE는 `GET /api/c2guard/v1/session`으로 station과 권한을 확인한다.
-6. `POST /api/c2guard/v1/logout` 성공 후 시작 화면으로 이동한다.
+1. FE가 `/auth/staging/pilot/stations`에서 소방청 공개 좌표 기반 관할 목록을 조회한다.
+2. 사용자가 지역·소방서를 선택하면 FE가 같은 출처의 `/auth/staging/pilot`에 허용된 `stationId`를 POST한다.
+3. BE는 callback과 동일한 HTTPS Origin과 서버 카탈로그의 `stationId`를 검사한다.
+4. 제한된 user·선택 station·role을 담은 HS256 `__session` cookie를 발급한다.
+5. 서버 allowlist의 고정 HTTPS callback으로만 303 redirect한다.
+6. FE는 `GET /api/c2guard/v1/session`으로 station·공개 위치·권한을 확인한다.
+7. `POST /api/c2guard/v1/logout` 성공 후 시작 화면으로 이동한다.
 
 `public-pilot-enabled=false`인 일반 staging 로그인은 기존처럼 CSRF token, Secret Manager password,
 constant-time 비교, client 주소별 실패 제한을 사용한다.
@@ -64,6 +65,7 @@ cookie: __session; Path=/; HttpOnly; Secure; SameSite=Lax; 기본 만료 8시간
 ```
 
 세션 응답의 `stationId`는 DB·권한에 사용하는 안정 ID이고 `stationDisplayName`은 화면 표시값이다.
+공개 파일럿 관할은 `stationLocation`에 주소·위도·경도·전화번호·공개 데이터 출처가 함께 반환된다.
 FE는 사용자가 입력한 소방서명을 권한 정보로 사용하지 않는다.
 
 공개 파일럿은 비밀번호 인증이 아니다. 대회·QA에서 계정 입력 없이 제한 관할 기능을 검증하기

@@ -1,9 +1,19 @@
 {
   "schemaVersion": "chemicheck119-dashboard-bff-v1",
   "requestId": "REQ-SESSION-EXAMPLE-0001",
-  "userId": "responder-staging",
-  "stationId": "station-seoul-119",
-  "stationDisplayName": "서울 테스트 소방서",
+  "userId": "public-pilot",
+  "stationId": "nfa-0985",
+  "stationDisplayName": "서울 강남소방서",
+  "stationLocation": {
+    "address": "서울특별시 강남구 테헤란로 629(삼성동)",
+    "latitude": 37.5102929,
+    "longitude": 127.06684,
+    "phone": "02-553-3315",
+    "coordinateSource": "NFA_PUBLIC_DATA",
+    "sourceName": "소방청_전국소방서 좌표현황(XY좌표)",
+    "sourceUrl": "https://www.data.go.kr/data/15138232/fileData.do",
+    "sourceDate": "2024-09-01"
+  },
   "roles": [
     "RESPONDER"
   ],

@@ -129,6 +129,8 @@ class StagingAuthIntegrationTest {
     @Test
     void doesNotExposePublicPilotAccessUnlessExplicitlyEnabled() throws Exception {
         mockMvc.perform(post("/auth/staging/pilot")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("stationId", "nfa-0985")
                         .header(HttpHeaders.ORIGIN, "https://chemicheck119.site"))
                 .andExpect(status().isNotFound());
     }

@@ -3,6 +3,7 @@ package com.c2guard.auth.staging;
 import com.c2guard.security.BffSecurityProperties;
 import com.c2guard.security.BffSessionCookieService;
 import com.c2guard.security.SignedSessionTokenService;
+import com.c2guard.station.FireStationCatalog;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,6 +38,7 @@ public class StagingAuthController {
     private static final Logger log = LoggerFactory.getLogger(StagingAuthController.class);
     private static final String LOGIN_PATH = "/auth/staging/login";
     private static final String PILOT_PATH = "/auth/staging/pilot";
+    private static final String PILOT_STATIONS_PATH = "/auth/staging/pilot/stations";
     private static final String CSRF_COOKIE = "CHEMICHECK119_STAGING_AUTH_CSRF";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -45,17 +47,20 @@ public class StagingAuthController {
     private final SignedSessionTokenService tokenService;
     private final BffSessionCookieService sessionCookieService;
     private final StagingLoginAttemptLimiter attemptLimiter;
+    private final FireStationCatalog stationCatalog;
 
     public StagingAuthController(StagingAuthProperties properties,
                                  BffSecurityProperties securityProperties,
                                  SignedSessionTokenService tokenService,
                                  BffSessionCookieService sessionCookieService,
-                                 StagingLoginAttemptLimiter attemptLimiter) {
+                                 StagingLoginAttemptLimiter attemptLimiter,
+                                 FireStationCatalog stationCatalog) {
         this.properties = properties;
         this.securityProperties = securityProperties;
         this.tokenService = tokenService;
         this.sessionCookieService = sessionCookieService;
         this.attemptLimiter = attemptLimiter;
+        this.stationCatalog = stationCatalog;
     }
 
     @GetMapping(value = LOGIN_PATH, produces = MediaType.TEXT_HTML_VALUE)
@@ -93,28 +98,47 @@ public class StagingAuthController {
         }
 
         attemptLimiter.succeeded(attemptKey);
-        return issueSession(response, "staging_login_succeeded", true);
+        return issueSession(response, "staging_login_succeeded", true,
+                properties.getStationId(), properties.getStationDisplayName());
     }
 
-    @PostMapping(value = PILOT_PATH, produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<Void> startPublicPilot(HttpServletRequest request,
+    @GetMapping(value = PILOT_STATIONS_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<FireStationCatalog.CatalogResponse> publicPilotStations() {
+        requirePublicPilot();
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(stationCatalog.response());
+    }
+
+    @PostMapping(value = PILOT_PATH,
+            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+            produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<Void> startPublicPilot(
+                                          @RequestParam(defaultValue = "") String stationId,
+                                          HttpServletRequest request,
                                           HttpServletResponse response) {
-        requireReady();
-        if (!properties.isPublicPilotEnabled()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        }
+        requirePublicPilot();
         if (!properties.acceptsPilotOrigin(request.getHeader(HttpHeaders.ORIGIN))) {
             log.warn("security_event outcome=staging_public_pilot_origin_rejected");
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
-        return issueSession(response, "staging_public_pilot_session_issued", false);
+        FireStationCatalog.Station station = stationCatalog.find(stationId)
+                .orElseThrow(() -> {
+                    log.warn("security_event outcome=staging_public_pilot_station_rejected");
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "허용된 소방서를 선택해주세요.");
+                });
+        return issueSession(response, "staging_public_pilot_session_issued", false,
+                station.stationId(), station.stationDisplayName());
     }
 
     private ResponseEntity<Void> issueSession(HttpServletResponse response,
                                               String outcome,
-                                              boolean expireLoginCsrf) {
+                                              boolean expireLoginCsrf,
+                                              String stationId,
+                                              String stationDisplayName) {
         String token = tokenService.issue(properties.getUserId(),
-                properties.getStationId(), properties.getStationDisplayName(),
+                stationId, stationDisplayName,
                 properties.getRoles(), properties.getIncidentScopes());
         sessionCookieService.issue(response, token,
                 securityProperties.getSessionMaxAge());
@@ -145,10 +169,13 @@ public class StagingAuthController {
                 + HtmlUtils.htmlEscape(error) + "</p>";
         String accessHtml = publicPilot ? """
                 <form method="post" action="%s">
-                <button type="submit">파일럿 시작</button></form>
+                <label>관할 소방서<select name="stationId" required>
+                <option value="">소방서를 선택하세요</option>%s</select></label>
+                <button type="submit">선택한 소방서로 시작</button></form>
                 <p class="notice"><strong>대회·QA용 공개 파일럿</strong>입니다.<br>
-                실제 기관 사용자 인증이나 실제 119 지령 계정이 아닙니다.</p>
-                """.formatted(PILOT_PATH) : """
+                소방청 공개 좌표 자료의 소방서 위치를 출동 기준점으로 사용합니다.<br>
+                실제 기관 사용자 인증이나 실제 119 지령 계정은 아닙니다.</p>
+                """.formatted(PILOT_PATH, pilotStationOptions()) : """
                 <form method="post" action="%s"><input type="hidden" name="csrf" value="%s">
                 <label>계정<input name="userId" autocomplete="username" maxlength="128" required></label>
                 <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
@@ -158,7 +185,7 @@ public class StagingAuthController {
         String title = publicPilot ? "케미체크119 파일럿" : "케미체크119 staging 로그인";
         String heading = publicPilot ? "파일럿을 바로 시작하세요" : "staging 로그인";
         String intro = publicPilot
-                ? safeStation + "의 제한된 공용 세션으로 접속합니다."
+                ? "지역과 관할 소방서를 선택하면 해당 소방서의 제한된 공용 세션으로 접속합니다."
                 : safeStation;
         String html = """
                 <!doctype html>
@@ -167,8 +194,8 @@ public class StagingAuthController {
                 <title>%s</title>
                 <style>body{font-family:system-ui;margin:0;background:#f5f7fa;color:#172033}
                 main{max-width:420px;margin:10vh auto;padding:28px;background:white;border-radius:16px}
-                label{display:block;margin-top:14px;font-weight:700}input{box-sizing:border-box;width:100%%;
-                margin-top:6px;padding:12px;border:1px solid #b8c0cc;border-radius:8px}button{width:100%%;
+                label{display:block;margin-top:14px;font-weight:700}input,select{box-sizing:border-box;width:100%%;
+                margin-top:6px;padding:12px;border:1px solid #b8c0cc;border-radius:8px;background:white}button{width:100%%;
                 margin-top:20px;padding:13px;border:0;border-radius:8px;background:#b42318;color:white;
                 font-weight:800;cursor:pointer}.error{color:#b42318}.notice{font-size:13px;line-height:1.6;
                 color:#596579}</style></head>
@@ -184,6 +211,31 @@ public class StagingAuthController {
         if (!properties.isReady()) {
             throw new IllegalStateException("staging 인증 설정이 준비되지 않았습니다.");
         }
+    }
+
+    private void requirePublicPilot() {
+        requireReady();
+        if (!properties.isPublicPilotEnabled()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    private String pilotStationOptions() {
+        StringBuilder html = new StringBuilder();
+        for (FireStationCatalog.Region region : stationCatalog.response().regions()) {
+            html.append("<optgroup label=\"")
+                    .append(HtmlUtils.htmlEscape(region.regionName()))
+                    .append("\">");
+            for (FireStationCatalog.Station station : region.stations()) {
+                html.append("<option value=\"")
+                        .append(HtmlUtils.htmlEscape(station.stationId()))
+                        .append("\">")
+                        .append(HtmlUtils.htmlEscape(station.stationDisplayName()))
+                        .append("</option>");
+            }
+            html.append("</optgroup>");
+        }
+        return html.toString();
     }
 
     private boolean validCsrf(HttpServletRequest request, String supplied) {
