@@ -39,6 +39,9 @@ Accept: text/event-stream
 
 기본값은 비활성화입니다.
 
+Cloud Run staging workflow에서는 `public_incident_replay_enabled=true`를 명시한 배포만 두
+서버 환경변수를 함께 활성화하며 candidate와 stable URL에서 SSE 경계를 smoke test합니다.
+
 | 환경변수 | 기본값 | 설명 |
 |---|---:|---|
 | `CHEMICHECK119_INCIDENT_REPLAY_ENABLED` | `false` | replay Controller 활성화 |
