@@ -36,6 +36,8 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
             "^/api/facilities/[^/]+/substances$");
     private static final Pattern INCIDENT_REPLAY_STREAM = Pattern.compile(
             "^/api/c2guard/v1/intake/replay-stream/[^/]+$");
+    private static final Pattern SYNTHETIC_REPLAY_CONFIRMATION = Pattern.compile(
+            "^/api/c2guard/v1/intake/replays/[^/]+/confirmations/[^/]+$");
     private static final Set<String> KNOWN_METHODS = Set.of(
             "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD");
     private static final Logger log = LoggerFactory.getLogger(BffRequestIdFilter.class);
@@ -128,6 +130,9 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
         }
         if (INCIDENT_REPLAY_STREAM.matcher(requestUri).matches()) {
             return "intake.replay-stream";
+        }
+        if (SYNTHETIC_REPLAY_CONFIRMATION.matcher(requestUri).matches()) {
+            return "intake.replay-confirmation";
         }
         return "unmatched";
     }

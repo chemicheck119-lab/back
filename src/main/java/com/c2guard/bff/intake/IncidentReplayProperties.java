@@ -11,8 +11,11 @@ public class IncidentReplayProperties {
 
     private boolean enabled;
     private boolean publicEndpointEnabled;
+    private boolean syntheticConfirmationEnabled;
     private Duration delay = Duration.ofSeconds(1);
     private Duration timeout = Duration.ofSeconds(10);
+    private Duration syntheticIncidentTtl = Duration.ofMinutes(30);
+    private int maxActiveSyntheticIncidents = 100;
 
     public boolean isEnabled() {
         return enabled;
@@ -30,6 +33,14 @@ public class IncidentReplayProperties {
         this.publicEndpointEnabled = publicEndpointEnabled;
     }
 
+    public boolean isSyntheticConfirmationEnabled() {
+        return syntheticConfirmationEnabled;
+    }
+
+    public void setSyntheticConfirmationEnabled(boolean syntheticConfirmationEnabled) {
+        this.syntheticConfirmationEnabled = syntheticConfirmationEnabled;
+    }
+
     public Duration getDelay() {
         return delay;
     }
@@ -44,5 +55,21 @@ public class IncidentReplayProperties {
 
     public void setTimeout(Duration timeout) {
         this.timeout = timeout;
+    }
+
+    public Duration getSyntheticIncidentTtl() {
+        return syntheticIncidentTtl;
+    }
+
+    public void setSyntheticIncidentTtl(Duration syntheticIncidentTtl) {
+        this.syntheticIncidentTtl = syntheticIncidentTtl;
+    }
+
+    public int getMaxActiveSyntheticIncidents() {
+        return maxActiveSyntheticIncidents;
+    }
+
+    public void setMaxActiveSyntheticIncidents(int maxActiveSyntheticIncidents) {
+        this.maxActiveSyntheticIncidents = maxActiveSyntheticIncidents;
     }
 }

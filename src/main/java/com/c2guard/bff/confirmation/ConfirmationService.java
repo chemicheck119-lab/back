@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 
 @Service
 public class ConfirmationService {
@@ -34,6 +35,19 @@ public class ConfirmationService {
                 incidentId, request.role(), request.casNumber(), request.displayName(),
                 request.confirmationBasis(), request.observedAt(), principal.userId(),
                 principal.organizationId(), requestId);
+        return new ConfirmationResponse(requestId, store.save(command).confirmation());
+    }
+
+    public ConfirmationResponse confirmSyntheticReplay(String incidentId,
+                                                       ConfirmationRole role,
+                                                       String casNumber,
+                                                       String displayName,
+                                                       OffsetDateTime observedAt,
+                                                       String requestId) {
+        ConfirmationSaveCommand command = new ConfirmationSaveCommand(
+                incidentId, role, casNumber, displayName,
+                ConfirmationBasis.OTHER_VERIFIED_SOURCE, observedAt,
+                "synthetic-replay-adapter", "STATION-PUBLIC-DEMO", requestId);
         return new ConfirmationResponse(requestId, store.save(command).confirmation());
     }
 }

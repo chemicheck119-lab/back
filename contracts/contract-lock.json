@@ -56,12 +56,13 @@
     },
     {
       "path": "contracts/incident-intake-replay-v1.openapi.json",
-      "sha256": "e27f3124c0ae13f51cb8fe00e5ae37978664dbc076504c1f00fd92931f75f8b1",
+      "sha256": "1c49b80dc08fb1815e30065099a599bb033b6e0a00139855f48fd54ebbea7ae7",
       "source": "BE_Repository local contract",
       "localDecisions": [
         "Public replay is PUBLIC_SYNTHETIC and never represents authorized 119 dispatch",
         "Replay uses one SSE incident.accepted event and is disabled by default",
-        "Public replay accepts no caller-provided incident payload"
+        "Public replay accepts no caller-provided incident payload",
+        "Synthetic confirmation accepts only replay-issued incident IDs and server-fixed CAS values"
       ]
     },
     {
@@ -70,6 +71,14 @@
       "source": "BE_Repository local fixture",
       "localDecisions": [
         "Fixture contains no personal information and preserves source disclosure"
+      ]
+    },
+    {
+      "path": "contracts/examples/bff/synthetic_replay_confirmation.json",
+      "sha256": "e49a7085cc63eafc1b8fe40d1a1f9663011d7df21829fd1ab66f74474b0d8060",
+      "source": "BE_Repository local fixture",
+      "localDecisions": [
+        "Fixture is explicitly synthetic and cannot represent an official field confirmation"
       ]
     }
   ]

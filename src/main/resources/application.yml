@@ -66,8 +66,11 @@ chemicheck119:
   incident-replay:
     enabled: ${CHEMICHECK119_INCIDENT_REPLAY_ENABLED:false}
     public-endpoint-enabled: ${CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED:false}
+    synthetic-confirmation-enabled: ${CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED:false}
     delay: ${CHEMICHECK119_INCIDENT_REPLAY_DELAY:1s}
     timeout: ${CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT:10s}
+    synthetic-incident-ttl: ${CHEMICHECK119_SYNTHETIC_INCIDENT_TTL:30m}
+    max-active-synthetic-incidents: ${CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS:100}
   persistence:
     require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
 

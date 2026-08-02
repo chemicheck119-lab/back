@@ -77,5 +77,8 @@ class BffRequestIdFilterTest {
         assertEquals("intake.replay-stream",
                 BffRequestIdFilter.routeName(
                         "/api/c2guard/v1/intake/replay-stream/CONTEST-LIVE-CHEMICAL-001"));
+        assertEquals("intake.replay-confirmation",
+                BffRequestIdFilter.routeName(
+                        "/api/c2guard/v1/intake/replays/INC-PUBLIC-1/confirmations/INCIDENT"));
     }
 }

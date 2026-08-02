@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "케미체크119 공개 합성 지령 Replay 계약",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "실제 119 연계를 사칭하지 않고 Incident Intake 경계를 검증하는 staging/demo 전용 SSE 계약입니다."
   },
   "servers": [
@@ -53,6 +53,64 @@
         "x-implementation-owner": "BE_Repository",
         "x-official-119-integration": false
       }
+    },
+    "/api/c2guard/v1/intake/replays/{incidentId}/confirmations/{role}": {
+      "post": {
+        "operationId": "confirmPublicSyntheticReplaySubstance",
+        "summary": "서버 고정 공개 합성 물질을 시연용으로 확인",
+        "description": "요청 본문을 받지 않습니다. 현재 BE가 발급하고 TTL 안에 보관 중인 PUBLIC_SYNTHETIC incidentId에만 역할별 고정 CAS를 기록합니다.",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+            }
+          },
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "INCIDENT",
+                "FACILITY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "멱등 저장된 공개 합성 확인. INCIDENT는 7681-52-9, FACILITY는 7647-01-0으로 고정됩니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheticReplayConfirmation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "public synthetic confirmation flag가 없고 세션도 없는 경우"
+          },
+          "404": {
+            "description": "기능 비활성화 또는 현재 인스턴스가 발급하지 않은 incidentId"
+          },
+          "410": {
+            "description": "합성 incidentId의 TTL 만료"
+          }
+        },
+        "security": [],
+        "x-public-only-when-configured": true,
+        "x-production-default-enabled": false,
+        "x-request-body-allowed": false,
+        "x-caller-selected-cas-allowed": false,
+        "x-implementation-owner": "BE_Repository",
+        "x-official-field-confirmation": false
+      }
     }
   },
   "components": {
@@ -95,6 +153,96 @@
             "format": "uri"
           },
           "usage": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "SyntheticReplayConfirmation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "incidentId",
+          "confirmationId",
+          "role",
+          "casNumber",
+          "displayName",
+          "dataClassification",
+          "confirmationType",
+          "createdAt",
+          "confirmedCount",
+          "allRequiredConfirmed",
+          "reanalyzeRequired",
+          "disclosure"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string",
+            "const": "chemicheck119-synthetic-replay-confirmation-v1"
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "incidentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "confirmationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "INCIDENT",
+              "FACILITY"
+            ]
+          },
+          "casNumber": {
+            "type": "string",
+            "enum": [
+              "7681-52-9",
+              "7647-01-0"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "enum": [
+              "차아염소산나트륨",
+              "염산"
+            ]
+          },
+          "dataClassification": {
+            "type": "string",
+            "const": "PUBLIC_SYNTHETIC"
+          },
+          "confirmationType": {
+            "type": "string",
+            "const": "SYNTHETIC_DEMO_CONFIRMATION"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "confirmedCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "allRequiredConfirmed": {
+            "type": "boolean"
+          },
+          "reanalyzeRequired": {
+            "type": "boolean",
+            "const": true
+          },
+          "disclosure": {
             "type": "string",
             "minLength": 1
           }

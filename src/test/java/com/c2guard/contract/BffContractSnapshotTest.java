@@ -86,6 +86,9 @@ class BffContractSnapshotTest {
         JsonNode operation = contract.path("paths")
                 .path("/api/c2guard/v1/intake/replay-stream/{scenarioId}")
                 .path("get");
+        JsonNode confirmationOperation = contract.path("paths")
+                .path("/api/c2guard/v1/intake/replays/{incidentId}/confirmations/{role}")
+                .path("post");
 
         assertEquals("chemicheck119-incident-intake-replay-v1",
                 contract.path("x-contract-version").asText());
@@ -111,11 +114,37 @@ class BffContractSnapshotTest {
         assertFalse(envelope.path("properties").path("containsPersonalInformation")
                 .path("const").asBoolean(true));
 
+        assertTrue(confirmationOperation.path("security").isEmpty());
+        assertTrue(confirmationOperation.path("x-public-only-when-configured").asBoolean());
+        assertFalse(confirmationOperation.path("x-production-default-enabled")
+                .asBoolean(true));
+        assertFalse(confirmationOperation.path("x-request-body-allowed").asBoolean(true));
+        assertFalse(confirmationOperation.path("x-caller-selected-cas-allowed")
+                .asBoolean(true));
+        assertFalse(confirmationOperation.path("x-official-field-confirmation")
+                .asBoolean(true));
+        assertTrue(confirmationOperation.path("requestBody").isMissingNode());
+        JsonNode syntheticConfirmation = contract.path("components").path("schemas")
+                .path("SyntheticReplayConfirmation");
+        assertEquals("PUBLIC_SYNTHETIC", syntheticConfirmation.path("properties")
+                .path("dataClassification").path("const").asText());
+        assertEquals("SYNTHETIC_DEMO_CONFIRMATION", syntheticConfirmation.path("properties")
+                .path("confirmationType").path("const").asText());
+        assertEquals(Set.of("7681-52-9", "7647-01-0"),
+                jsonTextSet(syntheticConfirmation.path("properties")
+                        .path("casNumber").path("enum")));
+
         JsonNode fixture = read(Path.of(
                 "contracts/examples/bff/incident_replay_event.json"));
         assertEquals("PUBLIC_SYNTHETIC", fixture.path("dataClassification").asText());
         assertEquals("SYNTHETIC_DISPATCH_REPLAY", fixture.path("sourceType").asText());
         assertFalse(fixture.path("containsPersonalInformation").asBoolean(true));
+        JsonNode confirmationFixture = read(Path.of(
+                "contracts/examples/bff/synthetic_replay_confirmation.json"));
+        assertEquals("PUBLIC_SYNTHETIC",
+                confirmationFixture.path("dataClassification").asText());
+        assertEquals("SYNTHETIC_DEMO_CONFIRMATION",
+                confirmationFixture.path("confirmationType").asText());
     }
 
     @Test

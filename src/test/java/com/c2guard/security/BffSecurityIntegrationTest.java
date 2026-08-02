@@ -46,6 +46,7 @@ class BffSecurityIntegrationTest {
             "/api/c2guard/v1/incidents/INC-1/confirmations",
             "/api/c2guard/v1/incidents/INC-1/movement",
             "/api/c2guard/v1/incidents/INC-1/record",
+            "/api/c2guard/v1/intake/replays/INC-1/confirmations/INCIDENT",
             "/api/c2guard/v1/substances/discover"
     })
     void returnsAStructured401OnEveryBffPathWithoutAServiceSession(String path)
