@@ -270,11 +270,16 @@ smoke() {
       '.release.gitCommit == $gitCommit and .release.environment == "staging"' >/dev/null
 
   if [ "$GCP_STAGING_AUTH_ENABLED" = "true" ]; then
+    local expected_auth_action="/auth/staging/login"
+    if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
+      expected_auth_action="/auth/staging/pilot"
+    fi
+
     http_code="$(curl --silent --show-error \
       --output "$health_file" \
       --write-out '%{http_code}' \
       "$base_url/auth/staging/login")"
-    if [ "$http_code" != "200" ] || ! grep --quiet 'action="/auth/staging/login"' "$health_file"; then
+    if [ "$http_code" != "200" ] || ! grep --quiet "action=\"$expected_auth_action\"" "$health_file"; then
       echo "Staging login start smoke failed: HTTP $http_code"
       rm -f "$health_file"
       return 1
