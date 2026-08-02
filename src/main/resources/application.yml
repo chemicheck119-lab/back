@@ -63,6 +63,11 @@ chemicheck119:
   movement:
     next-refresh-seconds: ${CHEMICHECK119_MOVEMENT_NEXT_REFRESH_SECONDS:5}
     allow-demo-simulation: ${CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION:false}
+  incident-replay:
+    enabled: ${CHEMICHECK119_INCIDENT_REPLAY_ENABLED:false}
+    public-endpoint-enabled: ${CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED:false}
+    delay: ${CHEMICHECK119_INCIDENT_REPLAY_DELAY:1s}
+    timeout: ${CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT:10s}
   persistence:
     require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
 

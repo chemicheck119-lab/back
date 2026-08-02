@@ -1,6 +1,7 @@
 package com.c2guard.security;
 
 import com.c2guard.bff.common.BffRequestIdFilter;
+import com.c2guard.bff.intake.IncidentReplayProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,7 +35,8 @@ public class BffSecurityConfiguration {
             BffSecurityErrorHandler securityErrorHandler,
             IncidentPathAuthorizationManager incidentAuthorization,
             CorsConfigurationSource corsConfigurationSource,
-            BffSecurityProperties properties) throws Exception {
+            BffSecurityProperties properties,
+            IncidentReplayProperties replayProperties) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
@@ -59,6 +61,11 @@ public class BffSecurityConfiguration {
                         authorize.requestMatchers(HttpMethod.POST,
                                 "/api/c2guard/v1/incidents/analyze",
                                 "/api/c2guard/v1/substances/discover").authenticated();
+                    }
+                    if (replayProperties.isEnabled()
+                            && replayProperties.isPublicEndpointEnabled()) {
+                        authorize.requestMatchers(HttpMethod.GET,
+                                "/api/c2guard/v1/intake/replay-stream/*").permitAll();
                     }
                     authorize
                             .requestMatchers("/api/c2guard/v1/incidents/*/**")

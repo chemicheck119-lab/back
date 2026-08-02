@@ -34,6 +34,8 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
             "^/api/c2guard/v1/incidents/[^/]+/(confirmations|movement|record)$");
     private static final Pattern LEGACY_FACILITY_SUBSTANCES = Pattern.compile(
             "^/api/facilities/[^/]+/substances$");
+    private static final Pattern INCIDENT_REPLAY_STREAM = Pattern.compile(
+            "^/api/c2guard/v1/intake/replay-stream/[^/]+$");
     private static final Set<String> KNOWN_METHODS = Set.of(
             "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD");
     private static final Logger log = LoggerFactory.getLogger(BffRequestIdFilter.class);
@@ -123,6 +125,9 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
         }
         if (LEGACY_FACILITY_SUBSTANCES.matcher(requestUri).matches()) {
             return "legacy.facility-substances";
+        }
+        if (INCIDENT_REPLAY_STREAM.matcher(requestUri).matches()) {
+            return "intake.replay-stream";
         }
         return "unmatched";
     }

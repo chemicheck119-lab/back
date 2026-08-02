@@ -3,11 +3,15 @@
 이 디렉터리는 FE가 호출하는 BE/BFF v1 계약과 BE가 호출하는 모델 API 계약을 고정합니다.
 
 - `dashboard-bff-v1.openapi.json`: BE가 소유하는 FE 공개 계약
+- `incident-intake-replay-v1.openapi.json`: 공개 합성 지령 SSE·IncidentEnvelope 계약
 - `upstream/model-api-v1.openapi.json`: `chemicheck119/llm` 모델 API 읽기 전용 스냅샷
 - `upstream/model-api-integration-v1.json`: 저장소 경계·agent memory 소유권 계약
 - `examples/bff/*.json`: FE·BE consumer fixture
 - `examples/model/*.json`: BE→AI 요청 fixture
 - `contract-lock.json`: 원본 PR·commit·SHA-256과 BE 로컬 결정
+
+공개 합성 지령 계약은 실제 119 연계가 아닙니다. `PUBLIC_SYNTHETIC` 입력을 배포된
+FE → BE → AI 경로로 처리해 adapter 경계를 검증하며 기본 설정에서는 비활성화됩니다.
 
 대시보드 계약 원본은 `chemicheck119/llm` PR #31 merge commit
 `e24fa93d538229844af4377976ee5a180c881fb3`이고, 사고 agent와 외부 memory 계약은 PR #44

@@ -27,6 +27,8 @@ class BffContractSnapshotTest {
     private static final Path MODEL_CONTRACT = Path.of("contracts/upstream/model-api-v1.openapi.json");
     private static final Path INTEGRATION_CONTRACT =
             Path.of("contracts/upstream/model-api-integration-v1.json");
+    private static final Path INCIDENT_REPLAY_CONTRACT =
+            Path.of("contracts/incident-intake-replay-v1.openapi.json");
 
     @Test
     void bffContractPublishesAuthenticatedBackendOwnedRoutes() throws IOException {
@@ -75,6 +77,45 @@ class BffContractSnapshotTest {
 
         JsonNode detail = read(BFF_CONTRACT).path("components").path("schemas").path("DashboardErrorDetail");
         assertEquals(Set.of("code", "message", "retryable"), jsonTextSet(detail.path("required")));
+    }
+
+    @Test
+    void publicIncidentReplayContractCannotBeMistakenForAuthorizedDispatch()
+            throws IOException {
+        JsonNode contract = read(INCIDENT_REPLAY_CONTRACT);
+        JsonNode operation = contract.path("paths")
+                .path("/api/c2guard/v1/intake/replay-stream/{scenarioId}")
+                .path("get");
+
+        assertEquals("chemicheck119-incident-intake-replay-v1",
+                contract.path("x-contract-version").asText());
+        assertEquals("PUBLIC_SYNTHETIC_ONLY",
+                contract.path("x-data-boundary").asText());
+        assertEquals("NOT_CONNECTED",
+                contract.path("x-authorized-dispatch-status").asText());
+        assertFalse(operation.path("x-official-119-integration").asBoolean(true));
+        assertTrue(operation.path("x-public-only-when-configured").asBoolean());
+        assertFalse(operation.path("x-production-default-enabled").asBoolean(true));
+        assertTrue(operation.path("security").isArray());
+        assertTrue(operation.path("security").isEmpty());
+        assertEquals("#/components/schemas/IncidentEnvelope",
+                operation.path("responses").path("200").path("content")
+                        .path("text/event-stream").path("schema").path("$ref").asText());
+
+        JsonNode envelope = contract.path("components").path("schemas")
+                .path("IncidentEnvelope");
+        assertEquals("SYNTHETIC_DISPATCH_REPLAY",
+                envelope.path("properties").path("sourceType").path("const").asText());
+        assertEquals("PUBLIC_SYNTHETIC",
+                envelope.path("properties").path("dataClassification").path("const").asText());
+        assertFalse(envelope.path("properties").path("containsPersonalInformation")
+                .path("const").asBoolean(true));
+
+        JsonNode fixture = read(Path.of(
+                "contracts/examples/bff/incident_replay_event.json"));
+        assertEquals("PUBLIC_SYNTHETIC", fixture.path("dataClassification").asText());
+        assertEquals("SYNTHETIC_DISPATCH_REPLAY", fixture.path("sourceType").asText());
+        assertFalse(fixture.path("containsPersonalInformation").asBoolean(true));
     }
 
     @Test

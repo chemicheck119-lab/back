@@ -53,6 +53,24 @@
       "upstreamSha256": "56df97194ed76223a171580819614eb221c68b319db983c03b9e94c2c406a743",
       "sourceCommit": "32736a680d445acea158da42efebd87651ce11b2",
       "localDecisions": []
+    },
+    {
+      "path": "contracts/incident-intake-replay-v1.openapi.json",
+      "sha256": "e27f3124c0ae13f51cb8fe00e5ae37978664dbc076504c1f00fd92931f75f8b1",
+      "source": "BE_Repository local contract",
+      "localDecisions": [
+        "Public replay is PUBLIC_SYNTHETIC and never represents authorized 119 dispatch",
+        "Replay uses one SSE incident.accepted event and is disabled by default",
+        "Public replay accepts no caller-provided incident payload"
+      ]
+    },
+    {
+      "path": "contracts/examples/bff/incident_replay_event.json",
+      "sha256": "698f34143c4d9f73a72ea1bc1cf6bb67eb760120dec9c50156c64920489be45e",
+      "source": "BE_Repository local fixture",
+      "localDecisions": [
+        "Fixture contains no personal information and preserves source disclosure"
+      ]
     }
   ]
 }

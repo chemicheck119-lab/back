@@ -136,4 +136,15 @@ class BffSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
     }
+
+    @Test
+    void protectsIncidentReplayUnlessThePublicReplayFlagIsExplicitlyEnabled()
+            throws Exception {
+        mockMvc.perform(get(
+                        "/api/c2guard/v1/intake/replay-stream/CONTEST-LIVE-CHEMICAL-001")
+                        .header("X-Request-Id", "REQ-REPLAY-PROTECTED"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.requestId").value("REQ-REPLAY-PROTECTED"))
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+    }
 }
