@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "chemicheck119-incident-envelope-v1",
+  "incidentId": "INC-PUBLIC-20260802030405678",
+  "sourceEventId": "SYNTHETIC-DISPATCH-20260802030405678",
+  "idempotencyKey": "PUBLIC-REPLAY:CONTEST-LIVE-CHEMICAL-001:20260802030405678",
+  "receivedAt": "2026-08-02T03:04:05.678Z",
+  "occurredAt": "2026-08-02T03:03:20.678Z",
+  "stationId": "STATION-PUBLIC-DEMO",
+  "stationDisplayName": "공개 시연 소방서",
+  "facilityName": "공개 합성 사업장",
+  "addressText": "경기도 화성시 팔탄면",
+  "location": {
+    "latitude": 37.159,
+    "longitude": 126.904
+  },
+  "reportText": "차아염소산나트륨 저장탱크 누출 의심, 인접 저장고에 염산 표기",
+  "sourceType": "SYNTHETIC_DISPATCH_REPLAY",
+  "dataClassification": "PUBLIC_SYNTHETIC",
+  "sourceProvider": "CHEMICHECK119_PUBLIC_REPLAY",
+  "sourceSchemaVersion": "public-replay-v1",
+  "requestId": "REQ-PUBLIC-REPLAY-001",
+  "containsPersonalInformation": false,
+  "disclosure": "실제 119 신고가 아닌 개인정보 없는 공개 합성 지령입니다. 배포된 BE와 AI 처리 경로를 검증합니다.",
+  "datasetReferences": [
+    {
+      "name": "소방안전 빅데이터 플랫폼",
+      "url": "https://bigdata-119.kr/",
+      "usage": "공개 소방 데이터 구조와 대회 활용 맥락 참고"
+    }
+  ]
+}
