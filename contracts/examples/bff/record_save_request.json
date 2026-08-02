@@ -25,5 +25,20 @@
   "confirmationIds": [
     "CNF-EXAMPLE-0001",
     "CNF-EXAMPLE-0002"
-  ]
+  ],
+  "outcomeReport": {
+    "facilityName": "예시 화학공장",
+    "facilityAddress": "울산광역시 남구 산업로 119",
+    "performedActions": [
+      "ZONE_CONTROL",
+      "LEAK_SOURCE_CONTROL",
+      "VENTILATION"
+    ],
+    "briefApplicationStatus": "APPLIED",
+    "additionalFactors": [
+      "ENCLOSED_SPACE",
+      "ACTUAL_MIXING_CONFIRMED"
+    ],
+    "finalResponseOutcome": "SPREAD_CONTAINED"
+  }
 }

@@ -2887,6 +2887,118 @@
         "title": "DashboardProvenance",
         "type": "object"
       },
+      "DashboardAdditionalFactor": {
+        "enum": [
+          "ACTUAL_MIXING_CONFIRMED",
+          "ENCLOSED_SPACE",
+          "HEAT_OR_PRESSURE",
+          "DRAIN_OR_WATERWAY_CONNECTION",
+          "LABEL_OR_MSDS_MISMATCH",
+          "ADDITIONAL_SUBSTANCE_FOUND",
+          "CASUALTY_OR_EXPOSURE",
+          "WEATHER_INFLUENCE",
+          "OTHER"
+        ],
+        "title": "DashboardAdditionalFactor",
+        "type": "string"
+      },
+      "DashboardBriefApplicationStatus": {
+        "enum": [
+          "NOT_REVIEWED",
+          "REVIEWED_NOT_APPLIED",
+          "PARTIALLY_APPLIED",
+          "APPLIED"
+        ],
+        "title": "DashboardBriefApplicationStatus",
+        "type": "string"
+      },
+      "DashboardFinalResponseOutcome": {
+        "enum": [
+          "LEAK_STOPPED",
+          "SPREAD_CONTAINED",
+          "EVACUATION_COMPLETED",
+          "MATERIAL_RECOVERED",
+          "TRANSFERRED_TO_SPECIALIST",
+          "FALSE_ALARM",
+          "MONITORING_CONTINUES",
+          "OTHER"
+        ],
+        "title": "DashboardFinalResponseOutcome",
+        "type": "string"
+      },
+      "DashboardPerformedAction": {
+        "enum": [
+          "ZONE_CONTROL",
+          "EVACUATION",
+          "LEAK_SOURCE_CONTROL",
+          "ADSORPTION_OR_RECOVERY",
+          "WATER_SPRAY_OR_DILUTION",
+          "VENTILATION",
+          "DECONTAMINATION",
+          "RESCUE_OR_EMS",
+          "OTHER"
+        ],
+        "title": "DashboardPerformedAction",
+        "type": "string"
+      },
+      "DashboardStructuredIncidentOutcome": {
+        "additionalProperties": false,
+        "description": "화재조사·사후분석용 현장 결과 입력. 사고물질과 RuleEngine 결과는 BE가 권위 snapshot에서 결합한다.",
+        "properties": {
+          "additionalFactors": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardAdditionalFactor"
+            },
+            "maxItems": 20,
+            "title": "Additionalfactors",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "briefApplicationStatus": {
+            "$ref": "#/components/schemas/DashboardBriefApplicationStatus"
+          },
+          "facilityAddress": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facilityaddress"
+          },
+          "facilityName": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Facilityname",
+            "type": "string"
+          },
+          "finalResponseOutcome": {
+            "$ref": "#/components/schemas/DashboardFinalResponseOutcome"
+          },
+          "performedActions": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardPerformedAction"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Performedactions",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "facilityName",
+          "performedActions",
+          "briefApplicationStatus",
+          "additionalFactors",
+          "finalResponseOutcome"
+        ],
+        "title": "DashboardStructuredIncidentOutcome",
+        "type": "object"
+      },
       "DashboardRecordSaveRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2920,13 +3032,17 @@
             "minItems": 1,
             "title": "Messages",
             "type": "array"
+          },
+          "outcomeReport": {
+            "$ref": "#/components/schemas/DashboardStructuredIncidentOutcome"
           }
         },
         "required": [
           "conversationStartedAt",
           "messages",
           "analysisIds",
-          "confirmationIds"
+          "confirmationIds",
+          "outcomeReport"
         ],
         "title": "DashboardRecordSaveRequest",
         "type": "object"
@@ -4311,7 +4427,7 @@
             "ServiceSession": []
           }
         ],
-        "summary": "전체 대화·분석·확인 기록 저장",
+        "summary": "전체 대응 기록과 분석용 구조화 결과 저장",
         "tags": [
           "dashboard-bff"
         ],
@@ -4319,6 +4435,8 @@
           "analysisIds가 모두 존재하며 path incidentId에 속하는지 확인",
           "confirmationIds가 모두 존재하며 path incidentId에 속하는지 확인",
           "권위 있는 모델 snapshot·confirmation·provenance를 BE 저장소에서 결합",
+          "사고물질·충돌물질·위험은 클라이언트 입력이 아니라 권위 snapshot에서 추출",
+          "실제 수행 대응·브리프 적용·추가 요인·최종 결과는 제한된 코드값으로 저장",
           "알 수 없거나 다른 사고의 ID는 409로 거부"
         ],
         "x-implementation-owner": "BE_Repository",
