@@ -23,6 +23,11 @@ on:
         required: true
         type: boolean
         default: true
+      staging_auth_enabled:
+        description: staging 운영 계정 로그인과 서명 세션을 활성화합니다
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -79,7 +84,7 @@ jobs:
           GCP_PUBLIC_INCIDENT_REPLAY_ENABLED: ${{ inputs.public_incident_replay_enabled }}
           GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED: ${{ inputs.public_synthetic_confirmation_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
-          GCP_STAGING_AUTH_ENABLED: "false"
+          GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -229,7 +234,7 @@ jobs:
           GCP_PUBLIC_INCIDENT_REPLAY_ENABLED: ${{ inputs.public_incident_replay_enabled }}
           GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED: ${{ inputs.public_synthetic_confirmation_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
-          GCP_STAGING_AUTH_ENABLED: "false"
+          GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
       - name: Write deployment summary
@@ -247,6 +252,7 @@ jobs:
             echo "- Public analysis: \`${{ inputs.public_analysis_enabled }}\`"
             echo "- Public incident replay: \`${{ inputs.public_incident_replay_enabled }}\`"
             echo "- Public synthetic confirmation: \`${{ inputs.public_synthetic_confirmation_enabled }}\`"
+            echo "- Staging authentication: \`${{ inputs.staging_auth_enabled }}\`"
             echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo

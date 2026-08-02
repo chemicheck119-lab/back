@@ -70,6 +70,11 @@ staging은 승인된 Cloud SQL과
 Direct VPC egress를 항상 사용하며 메모리 DB 배포를 허용하지 않는다. workflow는 다음 순서를
 강제한다.
 
+운영형 수동 접수 파일럿은 같은 출처 Hosting proxy와 staging 계정을 준비한 뒤
+`staging_auth_enabled=true`, `public_analysis_enabled=false`,
+`public_incident_replay_enabled=false`, `public_synthetic_confirmation_enabled=false`로 배포한다.
+이 모드에서는 분석·현장 확인·이동·기록 저장을 모두 서명 세션으로 보호한다.
+
 1. `develop` commit 테스트
 2. commit SHA를 OCI revision label로 포함한 non-root 이미지 빌드
 3. Artifact Registry push 후 `image@sha256` digest 확정
