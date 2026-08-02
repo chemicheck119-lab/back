@@ -22,7 +22,7 @@ custom domain 적용 전에는 BE Cloud Run stable URL 뒤에 `/auth/staging/log
 2. adapter가 HttpOnly CSRF cookie와 일회성 form token을 발급한다.
 3. 서버 환경에 고정된 user ID와 Secret Manager password를 constant-time 비교한다.
 4. 실패 횟수를 client 주소별로 제한하고 입력값·비밀번호를 로그에 남기지 않는다.
-5. 성공 시 HS256 `CHEMICHECK119_SESSION` HttpOnly·Secure·SameSite=Lax cookie를 발급한다.
+5. 성공 시 HS256 `__session` HttpOnly·Secure·SameSite=Lax cookie를 발급한다.
 6. 서버 allowlist의 고정 HTTPS callback으로만 303 redirect한다.
 7. FE는 `GET /api/c2guard/v1/session`으로 station과 권한을 확인한다.
 8. `POST /api/c2guard/v1/logout` 성공 후 로그인 화면으로 이동한다.
@@ -56,11 +56,16 @@ FE origin: https://chemicheck119.site
 callback: https://chemicheck119.site
 session: GET https://api.chemicheck119.site/api/c2guard/v1/session
 logout: POST https://api.chemicheck119.site/api/c2guard/v1/logout
-cookie: CHEMICHECK119_SESSION; Path=/; HttpOnly; Secure; SameSite=Lax; 기본 만료 8시간
+cookie: __session; Path=/; HttpOnly; Secure; SameSite=Lax; 기본 만료 8시간
 ```
 
 세션 응답의 `stationId`는 DB·권한에 사용하는 안정 ID이고 `stationDisplayName`은 화면 표시값이다.
 FE는 사용자가 입력한 소방서명을 권한 정보로 사용하지 않는다.
+
+Firebase Hosting은 Cloud Run rewrite 요청에서 일반 cookie를 제거하고 `__session`만 전달한다.
+따라서 Hosting과 같은 출처로 공개하는 staging 배포는
+`CHEMICHECK119_SESSION_COOKIE_NAME=__session`을 강제한다. Cloud Run을 직접 호출하는 로컬·계약
+테스트의 기본 cookie 이름 `CHEMICHECK119_SESSION`은 그대로 유지한다.
 
 ## 운영 전환
 
