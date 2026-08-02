@@ -14,11 +14,11 @@ AI staging과 같은 Artifact Registry 및 runtime service account를 재사용�
 | Container repository | `asia-northeast3-docker.pkg.dev/chemi-check/chemicheck119/be` |
 | Runtime service account | `chemicheck119-runtime@chemi-check.iam.gserviceaccount.com` |
 
-Cloud Run 서비스는 공개 invoke를 허용한다. 공개 FE E2E 모드에서는 물질 후보 검색과 사고
-분석만 세션 없이 허용하고, confirmation·movement·record·session을 포함한 나머지 API는
-서명된 `CHEMICHECK119_SESSION` cookie가 없으면 `401 AUTH_REQUIRED`로 거부한다. Model API
-Key와 session signing secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정
-버전을 참조한다.
+Cloud Run 서비스는 공개 invoke를 허용한다. 운영 파일럿 모드에서는 분석·confirmation·movement·
+record·session API를 모두 인증하고, 서명된 session cookie가 없으면 `401 AUTH_REQUIRED`로
+거부한다. Firebase Hosting의 Cloud Run rewrite는 `__session` cookie만 원본 서비스로 전달하므로
+staging 배포 스크립트가 cookie 이름을 `__session`으로 고정한다. Model API Key와 session signing
+secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정 버전을 참조한다.
 
 ## GitHub repository variables
 
