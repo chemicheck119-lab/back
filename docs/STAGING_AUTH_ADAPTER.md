@@ -6,10 +6,11 @@
 위한 합성 테스트 계정 전용 adapter다. 기본값은 비활성화이며 production 사용자·실제 출동정보를
 저장하지 않는다.
 
-로그인 시작 URL은 다음과 같다.
+공개 파일럿 시작 URL과 승인 계정 로그인 URL은 분리한다.
 
 ```text
-https://chemicheck119.site/auth/staging/login
+공개 파일럿: POST https://chemicheck119.site/auth/staging/pilot
+승인 계정 로그인: GET/POST https://chemicheck119.site/auth/staging/login
 ```
 
 Firebase Hosting이 `/auth/**`와 `/api/**`를 BE Cloud Run으로 rewrite한다. Cloud Run stable URL을
@@ -18,14 +19,15 @@ Firebase Hosting이 `/auth/**`와 `/api/**`를 BE Cloud Run으로 rewrite한다.
 
 ## 흐름
 
-1. FE가 설정된 로그인 시작 URL로 top-level 이동한다.
-2. adapter가 HttpOnly CSRF cookie와 일회성 form token을 발급한다.
-3. 서버 환경에 고정된 user ID와 Secret Manager password를 constant-time 비교한다.
-4. 실패 횟수를 client 주소별로 제한하고 입력값·비밀번호를 로그에 남기지 않는다.
-5. 성공 시 HS256 `__session` HttpOnly·Secure·SameSite=Lax cookie를 발급한다.
-6. 서버 allowlist의 고정 HTTPS callback으로만 303 redirect한다.
-7. FE는 `GET /api/c2guard/v1/session`으로 station과 권한을 확인한다.
-8. `POST /api/c2guard/v1/logout` 성공 후 로그인 화면으로 이동한다.
+1. 공개 파일럿이 활성화되면 FE가 같은 출처의 `/auth/staging/pilot`에 POST한다.
+2. BE는 callback과 동일한 HTTPS Origin인지 검사한다.
+3. 제한된 고정 user·station·role을 담은 HS256 `__session` cookie를 발급한다.
+4. 서버 allowlist의 고정 HTTPS callback으로만 303 redirect한다.
+5. FE는 `GET /api/c2guard/v1/session`으로 station과 권한을 확인한다.
+6. `POST /api/c2guard/v1/logout` 성공 후 시작 화면으로 이동한다.
+
+`public-pilot-enabled=false`인 일반 staging 로그인은 기존처럼 CSRF token, Secret Manager password,
+constant-time 비교, client 주소별 실패 제한을 사용한다.
 
 callback은 요청 parameter로 받지 않으므로 open redirect를 허용하지 않는다. 로그인 HTML은
 `no-store`, CSP `form-action 'self'`, `frame-ancestors 'none'`, `no-referrer`를 적용한다.
@@ -35,6 +37,7 @@ callback은 요청 parameter로 받지 않으므로 open redirect를 허용하�
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | `CHEMICHECK119_STAGING_AUTH_ENABLED` | `false` | staging에서만 `true` |
+| `CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED` | `false` | 대회·QA용 공개 파일럿 POST 허용 |
 | `CHEMICHECK119_STAGING_AUTH_CALLBACK_URL` | 없음 | 고정 HTTPS FE callback |
 | `CHEMICHECK119_STAGING_AUTH_USER_ID` | 없음 | 합성 테스트 사용자 ID |
 | `CHEMICHECK119_STAGING_AUTH_STATION_ID` | 없음 | 변경하지 않는 station ID |
@@ -52,7 +55,8 @@ enabled인데 callback·계정·station·password가 불완전하면 `stagingAut
 
 ```text
 FE origin: https://chemicheck119.site
-로그인 시작: https://chemicheck119.site/auth/staging/login
+파일럿 시작: POST https://chemicheck119.site/auth/staging/pilot
+승인 계정 로그인: GET/POST https://chemicheck119.site/auth/staging/login
 callback: https://chemicheck119.site
 session: GET https://chemicheck119.site/api/c2guard/v1/session
 logout: POST https://chemicheck119.site/api/c2guard/v1/logout
@@ -61,6 +65,9 @@ cookie: __session; Path=/; HttpOnly; Secure; SameSite=Lax; 기본 만료 8시간
 
 세션 응답의 `stationId`는 DB·권한에 사용하는 안정 ID이고 `stationDisplayName`은 화면 표시값이다.
 FE는 사용자가 입력한 소방서명을 권한 정보로 사용하지 않는다.
+
+공개 파일럿은 비밀번호 인증이 아니다. 대회·QA에서 계정 입력 없이 제한 관할 기능을 검증하기
+위한 staging 전용 진입점이며, 실제 기관 사용자·권한·지령 시스템으로 표현하지 않는다.
 
 Firebase Hosting은 Cloud Run rewrite 요청에서 일반 cookie를 제거하고 `__session`만 전달한다.
 따라서 Hosting과 같은 출처로 공개하는 staging 배포는

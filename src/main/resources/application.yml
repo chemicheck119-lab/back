@@ -43,6 +43,7 @@ chemicheck119:
     public-analysis-enabled: ${CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED:false}
   staging-auth:
     enabled: ${CHEMICHECK119_STAGING_AUTH_ENABLED:false}
+    public-pilot-enabled: ${CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED:false}
     callback-url: ${CHEMICHECK119_STAGING_AUTH_CALLBACK_URL:}
     user-id: ${CHEMICHECK119_STAGING_AUTH_USER_ID:}
     station-id: ${CHEMICHECK119_STAGING_AUTH_STATION_ID:}

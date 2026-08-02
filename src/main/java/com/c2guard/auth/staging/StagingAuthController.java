@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -35,6 +36,7 @@ public class StagingAuthController {
 
     private static final Logger log = LoggerFactory.getLogger(StagingAuthController.class);
     private static final String LOGIN_PATH = "/auth/staging/login";
+    private static final String PILOT_PATH = "/auth/staging/pilot";
     private static final String CSRF_COOKIE = "CHEMICHECK119_STAGING_AUTH_CSRF";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -65,7 +67,7 @@ public class StagingAuthController {
     @PostMapping(value = LOGIN_PATH,
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> authenticate(
+    ResponseEntity<?> authenticate(
             @RequestParam(defaultValue = "") String userId,
             @RequestParam(defaultValue = "") String password,
             @RequestParam(defaultValue = "") String csrf,
@@ -91,13 +93,35 @@ public class StagingAuthController {
         }
 
         attemptLimiter.succeeded(attemptKey);
+        return issueSession(response, "staging_login_succeeded", true);
+    }
+
+    @PostMapping(value = PILOT_PATH, produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<Void> startPublicPilot(HttpServletRequest request,
+                                          HttpServletResponse response) {
+        requireReady();
+        if (!properties.isPublicPilotEnabled()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        if (!properties.acceptsPilotOrigin(request.getHeader(HttpHeaders.ORIGIN))) {
+            log.warn("security_event outcome=staging_public_pilot_origin_rejected");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        return issueSession(response, "staging_public_pilot_session_issued", false);
+    }
+
+    private ResponseEntity<Void> issueSession(HttpServletResponse response,
+                                              String outcome,
+                                              boolean expireLoginCsrf) {
         String token = tokenService.issue(properties.getUserId(),
                 properties.getStationId(), properties.getStationDisplayName(),
                 properties.getRoles(), properties.getIncidentScopes());
         sessionCookieService.issue(response, token,
                 securityProperties.getSessionMaxAge());
-        expireCsrf(response);
-        log.info("security_event outcome=staging_login_succeeded");
+        if (expireLoginCsrf) {
+            expireCsrf(response);
+        }
+        log.info("security_event outcome={}", outcome);
         return ResponseEntity.status(HttpStatus.SEE_OTHER)
                 .location(properties.callbackUri())
                 .cacheControl(CacheControl.noStore())
@@ -106,8 +130,11 @@ public class StagingAuthController {
 
     private ResponseEntity<String> page(HttpServletResponse response,
                                         HttpStatus status, String error) {
-        String csrf = newCsrf();
-        issueCsrf(response, csrf);
+        boolean publicPilot = properties.isPublicPilotEnabled();
+        String csrf = publicPilot ? "" : newCsrf();
+        if (!publicPilot) {
+            issueCsrf(response, csrf);
+        }
         response.setHeader("Content-Security-Policy",
                 "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
                         + "frame-ancestors 'none'; base-uri 'none'");
@@ -116,24 +143,37 @@ public class StagingAuthController {
         String safeStation = HtmlUtils.htmlEscape(properties.getStationDisplayName());
         String errorHtml = error == null ? "" : "<p class=\"error\">"
                 + HtmlUtils.htmlEscape(error) + "</p>";
+        String accessHtml = publicPilot ? """
+                <form method="post" action="%s">
+                <button type="submit">파일럿 시작</button></form>
+                <p class="notice"><strong>대회·QA용 공개 파일럿</strong>입니다.<br>
+                실제 기관 사용자 인증이나 실제 119 지령 계정이 아닙니다.</p>
+                """.formatted(PILOT_PATH) : """
+                <form method="post" action="%s"><input type="hidden" name="csrf" value="%s">
+                <label>계정<input name="userId" autocomplete="username" maxlength="128" required></label>
+                <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
+                <button type="submit">로그인</button></form>
+                <p class="notice">승인된 staging 테스트 계정 전용입니다.</p>
+                """.formatted(LOGIN_PATH, csrf);
+        String title = publicPilot ? "케미체크119 파일럿" : "케미체크119 staging 로그인";
+        String heading = publicPilot ? "파일럿을 바로 시작하세요" : "staging 로그인";
+        String intro = publicPilot
+                ? safeStation + "의 제한된 공용 세션으로 접속합니다."
+                : safeStation;
         String html = """
                 <!doctype html>
                 <html lang="ko"><head><meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1">
-                <title>케미체크119 staging 로그인</title>
+                <title>%s</title>
                 <style>body{font-family:system-ui;margin:0;background:#f5f7fa;color:#172033}
                 main{max-width:420px;margin:10vh auto;padding:28px;background:white;border-radius:16px}
                 label{display:block;margin-top:14px;font-weight:700}input{box-sizing:border-box;width:100%%;
                 margin-top:6px;padding:12px;border:1px solid #b8c0cc;border-radius:8px}button{width:100%%;
                 margin-top:20px;padding:13px;border:0;border-radius:8px;background:#b42318;color:white;
-                font-weight:800}.error{color:#b42318}.notice{font-size:13px;color:#596579}</style></head>
-                <body><main><h1>staging 로그인</h1><p>%s</p>%s
-                <form method="post" action="%s"><input type="hidden" name="csrf" value="%s">
-                <label>계정<input name="userId" autocomplete="username" maxlength="128" required></label>
-                <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
-                <button type="submit">로그인</button></form>
-                <p class="notice">합성 staging 데이터 전용 계정입니다.</p></main></body></html>
-                """.formatted(safeStation, errorHtml, LOGIN_PATH, csrf);
+                font-weight:800;cursor:pointer}.error{color:#b42318}.notice{font-size:13px;line-height:1.6;
+                color:#596579}</style></head>
+                <body><main><h1>%s</h1><p>%s</p>%s%s</main></body></html>
+                """.formatted(title, heading, intro, errorHtml, accessHtml);
         return ResponseEntity.status(status)
                 .cacheControl(CacheControl.noStore())
                 .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))

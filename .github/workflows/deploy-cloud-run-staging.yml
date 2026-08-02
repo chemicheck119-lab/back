@@ -28,6 +28,11 @@ on:
         required: true
         type: boolean
         default: false
+      public_pilot_access_enabled:
+        description: 비밀번호 없는 대회·QA용 제한 파일럿 세션을 활성화합니다
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -85,6 +90,7 @@ jobs:
           GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED: ${{ inputs.public_synthetic_confirmation_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
+          GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -107,7 +113,8 @@ jobs:
             GCP_PUBLIC_INCIDENT_REPLAY_ENABLED \
             GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED \
             GCP_REQUIRE_EXTERNAL_DATABASE \
-            GCP_STAGING_AUTH_ENABLED
+            GCP_STAGING_AUTH_ENABLED \
+            GCP_PUBLIC_PILOT_ACCESS_ENABLED
           do
             test -n "${!name:-}" || {
               echo "Missing required GitHub repository variable: $name"
@@ -125,6 +132,13 @@ jobs:
           fi
           [[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
           [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" =~ ^(true|false)$ ]]
+          if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
+            test "$GCP_STAGING_AUTH_ENABLED" = "true"
+            test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
+            test "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" = "false"
+            test "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "false"
+          fi
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
           test "$GCP_CORS_ALLOWED_ORIGINS" = "https://chemicheck119.site"
           if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
@@ -235,6 +249,7 @@ jobs:
           GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED: ${{ inputs.public_synthetic_confirmation_enabled }}
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
+          GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
       - name: Write deployment summary
@@ -253,6 +268,7 @@ jobs:
             echo "- Public incident replay: \`${{ inputs.public_incident_replay_enabled }}\`"
             echo "- Public synthetic confirmation: \`${{ inputs.public_synthetic_confirmation_enabled }}\`"
             echo "- Staging authentication: \`${{ inputs.staging_auth_enabled }}\`"
+            echo "- Public pilot access: \`${{ inputs.public_pilot_access_enabled }}\`"
             echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo

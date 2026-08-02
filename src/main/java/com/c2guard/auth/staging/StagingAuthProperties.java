@@ -17,6 +17,7 @@ public class StagingAuthProperties {
     private static final Pattern ID = Pattern.compile("^[A-Za-z0-9_.:@-]{1,128}$");
 
     private boolean enabled;
+    private boolean publicPilotEnabled;
     private String callbackUrl = "";
     private String userId = "";
     private String stationId = "";
@@ -88,12 +89,46 @@ public class StagingAuthProperties {
                 && value.compareTo(maximum) <= 0;
     }
 
+    boolean acceptsPilotOrigin(String origin) {
+        if (origin == null || origin.isBlank()) {
+            return false;
+        }
+        try {
+            URI expected = callbackUri();
+            URI supplied = URI.create(origin);
+            return expected.getScheme().equalsIgnoreCase(supplied.getScheme())
+                    && expected.getHost().equalsIgnoreCase(supplied.getHost())
+                    && effectivePort(expected) == effectivePort(supplied)
+                    && supplied.getUserInfo() == null
+                    && (supplied.getPath() == null || supplied.getPath().isEmpty())
+                    && supplied.getQuery() == null
+                    && supplied.getFragment() == null;
+        } catch (IllegalArgumentException error) {
+            return false;
+        }
+    }
+
+    private int effectivePort(URI uri) {
+        if (uri.getPort() >= 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
+
     public boolean isEnabled() {
         return enabled;
     }
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isPublicPilotEnabled() {
+        return publicPilotEnabled;
+    }
+
+    public void setPublicPilotEnabled(boolean publicPilotEnabled) {
+        this.publicPilotEnabled = publicPilotEnabled;
     }
 
     public String getCallbackUrl() {

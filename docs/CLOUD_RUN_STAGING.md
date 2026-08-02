@@ -73,6 +73,8 @@ Direct VPC egress를 항상 사용하며 메모리 DB 배포를 허용하지 않
 운영형 수동 접수 파일럿은 같은 출처 Hosting proxy와 staging 계정을 준비한 뒤
 `staging_auth_enabled=true`, `public_analysis_enabled=false`,
 `public_incident_replay_enabled=false`, `public_synthetic_confirmation_enabled=false`로 배포한다.
+대회·QA에서 비밀번호 없는 제한 관할 진입이 필요할 때만
+`public_pilot_access_enabled=true`를 추가한다.
 이 모드에서는 분석·현장 확인·이동·기록 저장을 모두 서명 세션으로 보호한다.
 
 1. `develop` commit 테스트
