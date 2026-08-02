@@ -126,6 +126,13 @@ class StagingAuthIntegrationTest {
                         "attacker@example.test"))));
     }
 
+    @Test
+    void doesNotExposePublicPilotAccessUnlessExplicitlyEnabled() throws Exception {
+        mockMvc.perform(post("/auth/staging/pilot")
+                        .header(HttpHeaders.ORIGIN, "https://chemicheck119.site"))
+                .andExpect(status().isNotFound());
+    }
+
     private LoginPage loginPage() throws Exception {
         MvcResult result = mockMvc.perform(get(LOGIN_PATH))
                 .andExpect(status().isOk())
