@@ -288,13 +288,29 @@ smoke() {
 
   if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
     local pilot_cookie_file
+    local pilot_station_id
     pilot_cookie_file="$(mktemp)"
+    http_code="$(curl --silent --show-error \
+      --output "$health_file" \
+      --write-out '%{http_code}' \
+      "$base_url/auth/staging/pilot/stations")"
+    pilot_station_id="$(jq --raw-output '.regions[0].stations[0].stationId // empty' \
+      "$health_file")"
+    if [ "$http_code" != "200" ] || [ -z "$pilot_station_id" ] \
+        || ! jq --exit-status \
+          '.schemaVersion == "chemicheck119-fire-station-catalog-v1" and (.regions | length) == 17' \
+          "$health_file" >/dev/null; then
+      echo "Public pilot station catalog smoke failed: HTTP $http_code"
+      rm -f "$pilot_cookie_file" "$health_file"
+      return 1
+    fi
     http_code="$(curl --silent --show-error \
       --output "$health_file" \
       --write-out '%{http_code}' \
       --cookie-jar "$pilot_cookie_file" \
       --request POST \
       --header 'Origin: https://chemicheck119.site' \
+      --data-urlencode "stationId=$pilot_station_id" \
       "$base_url/auth/staging/pilot")"
     if [ "$http_code" != "303" ]; then
       echo "Public pilot session issue smoke failed: HTTP $http_code"
@@ -307,8 +323,9 @@ smoke() {
       --cookie "$pilot_cookie_file" \
       "$base_url/api/c2guard/v1/session")"
     if [ "$http_code" != "200" ] || ! jq --exit-status \
-      --arg stationId "$GCP_STAGING_AUTH_STATION_ID" \
-      '.stationId == $stationId and (.roles | index("RESPONDER")) != null' \
+      --arg stationId "$pilot_station_id" \
+      '.stationId == $stationId and .stationLocation.coordinateSource == "NFA_PUBLIC_DATA"
+       and (.roles | index("RESPONDER")) != null' \
       "$health_file" >/dev/null; then
       echo "Public pilot signed session smoke failed: HTTP $http_code"
       rm -f "$pilot_cookie_file" "$health_file"

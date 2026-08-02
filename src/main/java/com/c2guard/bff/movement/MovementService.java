@@ -78,7 +78,9 @@ public class MovementService {
             return unavailable(ARRIVED,
                     "현장 도착 상태이므로 이동 경로와 ETA를 표시하지 않습니다.");
         }
-        if (Duration.between(request.responderPosition().observedAt().toInstant(),
+        if (request.responderPosition().source()
+                != MovementUpdateRequest.PositionSource.MANUAL_DISPATCH
+                && Duration.between(request.responderPosition().observedAt().toInstant(),
                 acceptedAt.toInstant()).compareTo(POSITION_MAX_AGE) > 0) {
             return unavailable(POSITION_STALE,
                     "현재 위치가 5분보다 오래되어 경로와 ETA를 표시하지 않습니다.");

@@ -107,6 +107,28 @@ class MovementServiceTest {
     }
 
     @Test
+    void keepsAStaticFireStationDispatchPointUsableAfterFiveMinutes() {
+        RouteProvider provider = ignored -> new RouteProvider.AvailableRoute(
+                validRoute(List.of(
+                        List.of(126.8311, 37.2065),
+                        List.of(126.9417, 37.2181))));
+        MovementUpdateRequest request = new MovementUpdateRequest(
+                new MovementUpdateRequest.ResponderPosition(
+                        37.2065, 126.8311, NOW.minusSeconds(3600)
+                        .atOffset(ZoneOffset.UTC),
+                        MovementUpdateRequest.PositionSource.MANUAL_DISPATCH, null),
+                MovementUpdateRequest.JourneyState.EN_ROUTE, 24L);
+
+        MovementUpdateResponse response = service(provider).update(INCIDENT_ID,
+                request, "REQ-MOVE-STATION", principal);
+
+        assertEquals(MovementUpdateResponse.RouteStatus.AVAILABLE,
+                response.mapContext().route().status());
+        assertEquals("MANUAL_DISPATCH",
+                response.mapContext().responderPosition().source());
+    }
+
+    @Test
     void rejectsASequenceThatCannotAdvanceTheIncidentState() {
         MovementService service = service(
                 ignored -> new RouteProvider.UnavailableRoute("not configured", false));

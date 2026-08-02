@@ -3644,6 +3644,66 @@
             "minLength": 1,
             "type": "string"
           },
+          "stationLocation": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 300,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "maximum": 39.5,
+                    "minimum": 32,
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "maximum": 132,
+                    "minimum": 124,
+                    "type": "number"
+                  },
+                  "phone": {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  "coordinateSource": {
+                    "const": "NFA_PUBLIC_DATA",
+                    "type": "string"
+                  },
+                  "sourceName": {
+                    "const": "소방청_전국소방서 좌표현황(XY좌표)",
+                    "type": "string"
+                  },
+                  "sourceUrl": {
+                    "const": "https://www.data.go.kr/data/15138232/fileData.do",
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  "sourceDate": {
+                    "const": "2024-09-01",
+                    "format": "date",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "address",
+                  "latitude",
+                  "longitude",
+                  "phone",
+                  "coordinateSource",
+                  "sourceName",
+                  "sourceUrl",
+                  "sourceDate"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "roles": {
             "items": {
               "enum": [
@@ -3679,6 +3739,7 @@
           "userId",
           "stationId",
           "stationDisplayName",
+          "stationLocation",
           "roles",
           "incidentScopes",
           "issuedAt",
