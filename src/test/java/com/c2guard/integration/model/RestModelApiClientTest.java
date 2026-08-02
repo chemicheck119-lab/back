@@ -3,6 +3,7 @@ package com.c2guard.integration.model;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -38,11 +39,13 @@ class RestModelApiClientTest {
     private MockWebServer server;
     private ModelApiProperties properties;
     private ModelApiClient client;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() throws IOException {
         server = new MockWebServer();
         server.start();
+        meterRegistry = new SimpleMeterRegistry();
         properties = properties(server.url("/").uri());
         client = client(properties, millis -> { });
     }
@@ -127,6 +130,9 @@ class RestModelApiClientTest {
         assertEquals(2, server.getRequestCount());
         assertEquals(REQUEST_ID, server.takeRequest().getHeader(RestModelApiClient.REQUEST_ID_HEADER));
         assertEquals(REQUEST_ID, server.takeRequest().getHeader(RestModelApiClient.REQUEST_ID_HEADER));
+        assertEquals(1.0, meterRegistry.get("chemicheck119.model.api.duration")
+                .tags("operation", "substances.resolve", "outcome", "SUCCESS", "attempts", "2")
+                .timer().count());
     }
 
     @Test
@@ -139,6 +145,9 @@ class RestModelApiClientTest {
         assertEquals("MODEL_NOT_READY", error.getCode());
         assertFalse(error.isRetryable());
         assertEquals(1, server.getRequestCount());
+        assertEquals(1.0, meterRegistry.get("chemicheck119.model.api.errors")
+                .tags("operation", "substances.resolve", "outcome", "UPSTREAM", "attempts", "1")
+                .counter().count());
     }
 
     @ParameterizedTest
@@ -209,6 +218,9 @@ class RestModelApiClientTest {
         assertEquals("MODEL_API_KEY_NOT_CONFIGURED", error.getCode());
         assertFalse(error.isRetryable());
         assertEquals(0, server.getRequestCount());
+        assertEquals(1.0, meterRegistry.get("chemicheck119.model.api.errors")
+                .tags("operation", "substances.resolve", "outcome", "CONFIGURATION", "attempts", "0")
+                .counter().count());
     }
 
     @Test
@@ -267,7 +279,8 @@ class RestModelApiClientTest {
                 .baseUrl(clientProperties.getBaseUrl().toString())
                 .requestFactory(requestFactory)
                 .build();
-        return new RestModelApiClient(restClient, objectMapper, clientProperties, sleeper);
+        return new RestModelApiClient(restClient, objectMapper, clientProperties, sleeper,
+                new ModelApiTelemetry(meterRegistry));
     }
 
     private ModelApiProperties properties(URI baseUrl) {

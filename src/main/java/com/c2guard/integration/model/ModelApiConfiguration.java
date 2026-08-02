@@ -1,6 +1,7 @@
 package com.c2guard.integration.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +31,9 @@ public class ModelApiConfiguration {
     @Bean
     ModelApiClient modelApiClient(RestClient modelApiRestClient,
                                   ObjectMapper objectMapper,
-                                  ModelApiProperties properties) {
-        return new RestModelApiClient(modelApiRestClient, objectMapper, properties, Thread::sleep);
+                                  ModelApiProperties properties,
+                                  MeterRegistry meterRegistry) {
+        return new RestModelApiClient(modelApiRestClient, objectMapper, properties,
+                Thread::sleep, new ModelApiTelemetry(meterRegistry));
     }
 }

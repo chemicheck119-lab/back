@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 final class RestModelApiClient implements ModelApiClient {
 
@@ -34,13 +35,21 @@ final class RestModelApiClient implements ModelApiClient {
     private final ObjectMapper objectMapper;
     private final ModelApiProperties properties;
     private final RetrySleeper retrySleeper;
+    private final ModelApiTelemetry telemetry;
 
     RestModelApiClient(RestClient restClient, ObjectMapper objectMapper,
                        ModelApiProperties properties, RetrySleeper retrySleeper) {
+        this(restClient, objectMapper, properties, retrySleeper, ModelApiTelemetry.noop());
+    }
+
+    RestModelApiClient(RestClient restClient, ObjectMapper objectMapper,
+                       ModelApiProperties properties, RetrySleeper retrySleeper,
+                       ModelApiTelemetry telemetry) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.retrySleeper = retrySleeper;
+        this.telemetry = telemetry;
     }
 
     @Override
@@ -113,42 +122,63 @@ final class RestModelApiClient implements ModelApiClient {
                                      String requestedRequestId, boolean authenticated,
                                      String expectedSchemaVersion) {
         String requestId = normalizeRequestId(requestedRequestId);
-        if (authenticated && !properties.hasApiKey()) {
-            throw exception(ModelApiErrorKind.CONFIGURATION, "MODEL_API_KEY_NOT_CONFIGURED",
-                    "모델 API Key가 설정되지 않았습니다.", false, null, requestId, List.of(), null);
-        }
-
-        int maxAttempts = 1 + properties.getMaxRetries();
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            long startedNanos = System.nanoTime();
-            try {
-                ModelApiResponse response = exchange(method, path, request, requestId, authenticated);
-                validateSchema(response.body(), expectedSchemaVersion, requestId);
-                log.debug("model_api_call method={} path={} requestId={} status=success durationMs={} attempt={}",
-                        method, path, requestId, elapsedMillis(startedNanos), attempt);
-                return response;
-            } catch (ResourceAccessException error) {
-                ModelApiException mapped = mapResourceAccess(error, requestId);
-                if (attempt < maxAttempts && mapped.allowsAutomaticRetry()) {
-                    waitBeforeRetry(requestId);
-                    continue;
-                }
-                log.warn("model_api_call method={} path={} requestId={} status=failed code={} retryable={} durationMs={} attempts={}",
-                        method, path, requestId, mapped.getCode(), mapped.isRetryable(),
-                        elapsedMillis(startedNanos), attempt);
-                throw mapped;
-            } catch (ModelApiException error) {
-                if (attempt < maxAttempts && error.allowsAutomaticRetry()) {
-                    waitBeforeRetry(requestId);
-                    continue;
-                }
-                log.warn("model_api_call method={} path={} requestId={} status=failed code={} upstreamStatus={} retryable={} durationMs={} attempts={}",
-                        method, path, requestId, error.getCode(), error.getUpstreamStatus(),
-                        error.isRetryable(), elapsedMillis(startedNanos), attempt);
-                throw error;
+        long callStartedNanos = System.nanoTime();
+        int attempts = 0;
+        try {
+            if (authenticated && !properties.hasApiKey()) {
+                throw exception(ModelApiErrorKind.CONFIGURATION, "MODEL_API_KEY_NOT_CONFIGURED",
+                        "모델 API Key가 설정되지 않았습니다.", false, null,
+                        requestId, List.of(), null);
             }
+
+            int maxAttempts = 1 + properties.getMaxRetries();
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                attempts = attempt;
+                try {
+                    ModelApiResponse response = exchange(method, path, request, requestId, authenticated);
+                    validateSchema(response.body(), expectedSchemaVersion, requestId);
+                    long durationNanos = System.nanoTime() - callStartedNanos;
+                    telemetry.recordSuccess(path, attempts, durationNanos);
+                    logSuccess(method, path, requestId, durationNanos, attempts);
+                    return response;
+                } catch (ResourceAccessException error) {
+                    ModelApiException mapped = mapResourceAccess(error, requestId);
+                    if (attempt < maxAttempts && mapped.allowsAutomaticRetry()) {
+                        waitBeforeRetry(requestId);
+                        continue;
+                    }
+                    throw mapped;
+                } catch (ModelApiException error) {
+                    if (attempt < maxAttempts && error.allowsAutomaticRetry()) {
+                        waitBeforeRetry(requestId);
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+            throw new IllegalStateException("unreachable");
+        } catch (ModelApiException error) {
+            long durationNanos = System.nanoTime() - callStartedNanos;
+            telemetry.recordFailure(path, error.getKind(), attempts, durationNanos);
+            log.warn("model_api_call method={} operation={} requestId={} status=failed kind={} code={} upstreamStatus={} retryable={} durationMs={} attempts={}",
+                    method, ModelApiTelemetry.operation(path), requestId, error.getKind(),
+                    error.getCode(), error.getUpstreamStatus(), error.isRetryable(),
+                    TimeUnit.NANOSECONDS.toMillis(durationNanos), attempts);
+            throw error;
         }
-        throw new IllegalStateException("unreachable");
+    }
+
+    private void logSuccess(HttpMethod method, String path, String requestId,
+                            long durationNanos, int attempts) {
+        String operation = ModelApiTelemetry.operation(path);
+        long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
+        if (path.startsWith("/health/") || path.equals("/api/v1/meta")) {
+            log.debug("model_api_call method={} operation={} requestId={} status=success durationMs={} attempts={}",
+                    method, operation, requestId, durationMillis, attempts);
+            return;
+        }
+        log.info("model_api_call method={} operation={} requestId={} status=success durationMs={} attempts={}",
+                method, operation, requestId, durationMillis, attempts);
     }
 
     private ModelApiResponse exchange(HttpMethod method, String path, JsonNode request,
@@ -283,10 +313,6 @@ final class RestModelApiClient implements ModelApiClient {
             }
         }
         return false;
-    }
-
-    private static long elapsedMillis(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 
     private static ModelApiException exception(ModelApiErrorKind kind, String code, String message,
