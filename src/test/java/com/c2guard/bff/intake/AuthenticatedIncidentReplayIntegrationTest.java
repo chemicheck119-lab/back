@@ -1,8 +1,9 @@
 package com.c2guard.bff.intake;
 
 import com.c2guard.bff.confirmation.ConfirmationIdGenerator;
-import com.c2guard.security.BffTestSession;
+import com.c2guard.security.BffRole;
 import com.c2guard.security.SignedSessionTokenService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +16,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Set;
+
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -61,7 +66,7 @@ class AuthenticatedIncidentReplayIntegrationTest {
         mockMvc.perform(get(REPLAY_PATH).accept(MediaType.TEXT_EVENT_STREAM))
                 .andExpect(status().isUnauthorized());
 
-        Cookie session = BffTestSession.responder(tokenService, "*");
+        Cookie session = stationSession();
         MvcResult stream = mockMvc.perform(get(REPLAY_PATH)
                         .cookie(session)
                         .header("X-Request-Id", "REQ-AUTHENTICATED-REPLAY")
@@ -80,7 +85,12 @@ class AuthenticatedIncidentReplayIntegrationTest {
                 .map(line -> line.substring("data:".length()))
                 .findFirst()
                 .orElseThrow();
-        String incidentId = objectMapper.readTree(data).path("incidentId").asText();
+        JsonNode envelope = objectMapper.readTree(data);
+        String incidentId = envelope.path("incidentId").asText();
+        assertEquals("nfa-0958", envelope.path("stationId").asText());
+        assertEquals("울산 남부소방서", envelope.path("stationDisplayName").asText());
+        assertTrue(envelope.path("addressText").asText().contains("울산 남부소방서 관할"));
+        assertTrue(envelope.path("location").path("latitude").asDouble() > 35.5471664);
 
         mockMvc.perform(post("/api/c2guard/v1/intake/replays/" + incidentId
                         + "/confirmations/INCIDENT"))
@@ -96,5 +106,12 @@ class AuthenticatedIncidentReplayIntegrationTest {
                         .value("CFM-AUTHENTICATED-DEMO"))
                 .andExpect(jsonPath("$.confirmationType")
                         .value("SYNTHETIC_DEMO_CONFIRMATION"));
+    }
+
+    private Cookie stationSession() {
+        String token = tokenService.issue(
+                "responder-1", "nfa-0958", "울산 남부소방서",
+                Set.of(BffRole.RESPONDER), Set.of("*"));
+        return new Cookie("CHEMICHECK119_SESSION", token);
     }
 }
