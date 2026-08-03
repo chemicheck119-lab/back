@@ -18,6 +18,7 @@ required_variables=(
   GCP_PUBLIC_ANALYSIS_ENABLED
   GCP_PUBLIC_INCIDENT_REPLAY_ENABLED
   GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED
+  GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED
   GCP_REQUIRE_EXTERNAL_DATABASE
   GCP_STAGING_AUTH_ENABLED
   GCP_PUBLIC_PILOT_ACCESS_ENABLED
@@ -44,6 +45,7 @@ test "$maximum_instances" = "1" || {
 [[ "$GCP_PUBLIC_ANALYSIS_ENABLED" =~ ^(true|false)$ ]]
 [[ "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" =~ ^(true|false)$ ]]
 [[ "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" =~ ^(true|false)$ ]]
+[[ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" =~ ^(true|false)$ ]]
 if [ "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "true" ]; then
   test "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" = "true"
 fi
@@ -55,6 +57,9 @@ if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
   test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
   test "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" = "false"
   test "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "false"
+fi
+if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
+  test "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true"
 fi
 [[ "$RELEASE_GIT_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
@@ -148,7 +153,14 @@ PY
 )"
 fi
 
-env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
+incident_replay_enabled="$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED"
+synthetic_confirmation_enabled="$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED"
+if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
+  incident_replay_enabled=true
+  synthetic_confirmation_enabled=true
+fi
+
+env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
 secret_bindings="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION"
 
 if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
@@ -286,10 +298,10 @@ smoke() {
     fi
   fi
 
+  local session_cookie_file=""
   if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
-    local pilot_cookie_file
     local pilot_station_id
-    pilot_cookie_file="$(mktemp)"
+    session_cookie_file="$(mktemp)"
     http_code="$(curl --silent --show-error \
       --output "$health_file" \
       --write-out '%{http_code}' \
@@ -301,26 +313,26 @@ smoke() {
           '.schemaVersion == "chemicheck119-fire-station-catalog-v1" and (.regions | length) == 17' \
           "$health_file" >/dev/null; then
       echo "Public pilot station catalog smoke failed: HTTP $http_code"
-      rm -f "$pilot_cookie_file" "$health_file"
+      rm -f "$session_cookie_file" "$health_file"
       return 1
     fi
     http_code="$(curl --silent --show-error \
       --output "$health_file" \
       --write-out '%{http_code}' \
-      --cookie-jar "$pilot_cookie_file" \
+      --cookie-jar "$session_cookie_file" \
       --request POST \
       --header 'Origin: https://chemicheck119.site' \
       --data-urlencode "stationId=$pilot_station_id" \
       "$base_url/auth/staging/pilot")"
     if [ "$http_code" != "303" ]; then
       echo "Public pilot session issue smoke failed: HTTP $http_code"
-      rm -f "$pilot_cookie_file" "$health_file"
+      rm -f "$session_cookie_file" "$health_file"
       return 1
     fi
     http_code="$(curl --silent --show-error \
       --output "$health_file" \
       --write-out '%{http_code}' \
-      --cookie "$pilot_cookie_file" \
+      --cookie "$session_cookie_file" \
       "$base_url/api/c2guard/v1/session")"
     if [ "$http_code" != "200" ] || ! jq --exit-status \
       --arg stationId "$pilot_station_id" \
@@ -328,10 +340,13 @@ smoke() {
        and (.roles | index("RESPONDER")) != null' \
       "$health_file" >/dev/null; then
       echo "Public pilot signed session smoke failed: HTTP $http_code"
-      rm -f "$pilot_cookie_file" "$health_file"
+      rm -f "$session_cookie_file" "$health_file"
       return 1
     fi
-    rm -f "$pilot_cookie_file"
+    if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" != "true" ]; then
+      rm -f "$session_cookie_file"
+      session_cookie_file=""
+    fi
   fi
 
   http_code="$(curl --silent --show-error \
@@ -378,13 +393,30 @@ smoke() {
 
   local replay_file
   replay_file="$(mktemp)"
+  local replay_cookie_arguments=()
+  if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
+    http_code="$(curl --silent --show-error \
+      --output "$health_file" \
+      --write-out '%{http_code}' \
+      --header 'Accept: text/event-stream' \
+      "$base_url/api/c2guard/v1/intake/replay-stream/CONTEST-LIVE-CHEMICAL-001")"
+    if [ "$http_code" != "401" ] || ! jq --exit-status \
+      '.error.code == "AUTH_REQUIRED"' "$health_file" >/dev/null; then
+      echo "Anonymous incident replay boundary smoke failed: HTTP $http_code"
+      rm -f "$session_cookie_file" "$health_file" "$replay_file"
+      return 1
+    fi
+    replay_cookie_arguments=(--cookie "$session_cookie_file")
+  fi
   http_code="$(curl --silent --show-error \
     --max-time 15 \
     --output "$replay_file" \
     --write-out '%{http_code}' \
     --header 'Accept: text/event-stream' \
+    "${replay_cookie_arguments[@]}" \
     "$base_url/api/c2guard/v1/intake/replay-stream/CONTEST-LIVE-CHEMICAL-001")"
-  if [ "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" = "true" ]; then
+  if [ "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" = "true" ] \
+      || [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
     local replay_data
     replay_data="$(sed -n 's/^data://p' "$replay_file")"
     if [ "$http_code" != "200" ] \
@@ -395,14 +427,15 @@ smoke() {
           and .containsPersonalInformation == false
           and .sourceProvider == "CHEMICHECK119_PUBLIC_REPLAY"' \
         <<<"$replay_data" >/dev/null; then
-      echo "Public synthetic incident replay smoke failed: HTTP $http_code"
-      rm -f "$health_file" "$replay_file"
+      echo "Synthetic incident replay smoke failed: HTTP $http_code"
+      rm -f "$session_cookie_file" "$health_file" "$replay_file"
       return 1
     fi
 
     local replay_incident_id
     replay_incident_id="$(jq --raw-output '.incidentId' <<<"$replay_data")"
-    if [ "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "true" ]; then
+    if [ "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "true" ] \
+        || [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
       local confirmation_file
       confirmation_file="$(mktemp)"
       local confirmation_index=0
@@ -415,6 +448,7 @@ smoke() {
           --write-out '%{http_code}' \
           --request POST \
           --header "X-Request-Id: REQ-DEPLOY-SYNTHETIC-$confirmation_role-${RELEASE_GIT_COMMIT:0:8}" \
+          "${replay_cookie_arguments[@]}" \
           "$base_url/api/c2guard/v1/intake/replays/$replay_incident_id/confirmations/$confirmation_role")"
         if [ "$http_code" != "200" ] || ! jq --exit-status \
           --arg incidentId "$replay_incident_id" \
@@ -429,13 +463,14 @@ smoke() {
             and .confirmationType == "SYNTHETIC_DEMO_CONFIRMATION"
             and .confirmedCount == $confirmedCount
             and .reanalyzeRequired == true' "$confirmation_file" >/dev/null; then
-          echo "Public synthetic confirmation smoke failed for $confirmation_role: HTTP $http_code"
-          rm -f "$health_file" "$replay_file" "$confirmation_file"
+          echo "Synthetic confirmation smoke failed for $confirmation_role: HTTP $http_code"
+          rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
           return 1
         fi
       done
 
-      if [ "$GCP_PUBLIC_ANALYSIS_ENABLED" = "true" ]; then
+      if [ "$GCP_PUBLIC_ANALYSIS_ENABLED" = "true" ] \
+          || [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
         local replay_analysis_request
         replay_analysis_request="$(jq --compact-output '{
           incidentId: .incidentId,
@@ -464,6 +499,7 @@ smoke() {
           --header 'Content-Type: application/json' \
           --header "X-Request-Id: REQ-DEPLOY-SYNTHETIC-ANALYZE-${RELEASE_GIT_COMMIT:0:8}" \
           --data "$replay_analysis_request" \
+          "${replay_cookie_arguments[@]}" \
           "$base_url/api/c2guard/v1/incidents/analyze")"
         if [ "$http_code" != "200" ] || ! jq --exit-status \
           '.state == "SCREENING_COMPLETED"
@@ -475,7 +511,7 @@ smoke() {
             and .conflictReview.result.ruleId == "CAMEO-REACTIVE-GROUP-COMPATIBILITY-MATRIX"
             and .riskDisplayAllowed == true' "$confirmation_file" >/dev/null; then
           echo "Synthetic replay to BFF to AI to CAMEO smoke failed: HTTP $http_code"
-          rm -f "$health_file" "$replay_file" "$confirmation_file"
+          rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
           return 1
         fi
       fi
@@ -489,17 +525,20 @@ smoke() {
       if [ "$http_code" != "401" ] || ! jq --exit-status \
         '.error.code == "AUTH_REQUIRED"' "$health_file" >/dev/null; then
         echo "Protected synthetic confirmation boundary smoke failed: HTTP $http_code"
-        rm -f "$health_file" "$replay_file"
+        rm -f "$session_cookie_file" "$health_file" "$replay_file"
         return 1
       fi
     fi
   elif [ "$http_code" != "401" ] || ! jq --exit-status \
     '.error.code == "AUTH_REQUIRED"' "$replay_file" >/dev/null; then
     echo "Protected incident replay boundary smoke failed: HTTP $http_code"
-    rm -f "$health_file" "$replay_file"
+    rm -f "$session_cookie_file" "$health_file" "$replay_file"
     return 1
   fi
   rm -f "$replay_file"
+  if [ -n "$session_cookie_file" ]; then
+    rm -f "$session_cookie_file"
+  fi
   rm -f "$health_file"
 }
 

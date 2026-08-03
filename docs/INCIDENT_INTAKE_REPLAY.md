@@ -66,6 +66,13 @@ SSE → 고정 확인 2건 → AI 재분석 → CAMEO 규칙 실행을 smoke tes
 | `CHEMICHECK119_INCIDENT_REPLAY_DELAY` | `1s` | 지령 도착 연출 지연 |
 | `CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT` | `10s` | SSE 연결 timeout |
 
+`chemicheck119.site` 공개 파일럿처럼 BE가 발급한 서명 세션 안에서만 데모를 실행할 때는
+`INCIDENT_REPLAY_ENABLED=true`, `INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=false`,
+`SYNTHETIC_CONFIRMATION_ENABLED=true` 조합을 사용한다. 이 조합은 replay GET과 합성 확인
+POST를 모두 `/api/**` 기본 인증 정책 아래에 두며 익명 호출을 허용하지 않는다.
+Cloud Run staging workflow에서는 `authenticated_demo_replay_enabled=true`로 같은 조합을
+선택하며, 이 옵션은 `public_pilot_access_enabled=true`일 때만 허용된다.
+
 공개 POST는 replay로 발급된 TTL 내 incidentId와 두 역할만 받으며 요청 본문은 읽지 않습니다.
 임의 신고·CAS·물질명을 주입하는 endpoint는 제공하지 않습니다. 등록 정보는 staging 단일
 인스턴스 메모리에만 있어 재시작 후에는 지령을 다시 수신해야 하고, 확인 레코드는 기존 승인된

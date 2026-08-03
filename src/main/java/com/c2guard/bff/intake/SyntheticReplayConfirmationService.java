@@ -31,10 +31,9 @@ public class SyntheticReplayConfirmationService {
     public SyntheticReplayConfirmationResponse confirm(String incidentId,
                                                        ConfirmationRole role,
                                                        String requestId) {
-        if (!properties.isEnabled() || !properties.isPublicEndpointEnabled()
-                || !properties.isSyntheticConfirmationEnabled()) {
+        if (!properties.isEnabled() || !properties.isSyntheticConfirmationEnabled()) {
             throw new BffContractException(404, "SYNTHETIC_CONFIRMATION_DISABLED",
-                    "공개 합성 현장 확인이 비활성화되어 있습니다.", false);
+                    "합성 현장 확인이 비활성화되어 있습니다.", false);
         }
         IncidentEnvelope envelope = registry.requireActive(incidentId);
         SyntheticReplaySubstance substance = SyntheticReplaySubstance.forRole(role);
