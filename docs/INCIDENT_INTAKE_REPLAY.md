@@ -72,6 +72,10 @@ SSE → 고정 확인 2건 → AI 재분석 → CAMEO 규칙 실행을 smoke tes
 POST를 모두 `/api/**` 기본 인증 정책 아래에 두며 익명 호출을 허용하지 않는다.
 Cloud Run staging workflow에서는 `authenticated_demo_replay_enabled=true`로 같은 조합을
 선택하며, 이 옵션은 `public_pilot_access_enabled=true`일 때만 허용된다.
+인증 세션의 `stationId`가 소방청 전국 소방서 카탈로그에 있으면 지령의 소방서명과 합성
+사고지점은 선택 소방서를 기준으로 생성된다. 따라서 17개 시·도 215개 소방서가 동일한
+화학물질 시나리오를 각 관할 위치에서 재현하며, 좌표·경로는 실제 신고가 아닌 합성값으로
+계속 표시한다.
 
 공개 POST는 replay로 발급된 TTL 내 incidentId와 두 역할만 받으며 요청 본문은 읽지 않습니다.
 임의 신고·CAS·물질명을 주입하는 endpoint는 제공하지 않습니다. 등록 정보는 staging 단일

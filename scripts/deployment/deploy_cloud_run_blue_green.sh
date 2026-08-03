@@ -434,6 +434,16 @@ smoke() {
 
     local replay_incident_id
     replay_incident_id="$(jq --raw-output '.incidentId' <<<"$replay_data")"
+    if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ] \
+        && ! jq --exit-status --arg stationId "$pilot_station_id" \
+          '.stationId == $stationId
+            and (.stationDisplayName | length) > 0
+            and (.addressText | contains("관할 공개 합성 사고지점"))' \
+          <<<"$replay_data" >/dev/null; then
+      echo "Authenticated nationwide replay station scope smoke failed."
+      rm -f "$session_cookie_file" "$health_file" "$replay_file"
+      return 1
+    fi
     if [ "$GCP_PUBLIC_SYNTHETIC_CONFIRMATION_ENABLED" = "true" ] \
         || [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
       local confirmation_file
@@ -480,7 +490,6 @@ smoke() {
           location: {
             facilityName: .facilityName,
             address: .addressText,
-            province: "경기도",
             latitude: .location.latitude,
             longitude: .location.longitude,
             coordinateSource: "DISPATCH_SYSTEM",

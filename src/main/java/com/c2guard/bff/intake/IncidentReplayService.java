@@ -1,6 +1,7 @@
 package com.c2guard.bff.intake;
 
 import com.c2guard.bff.common.BffContractException;
+import com.c2guard.station.FireStationCatalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,11 +33,16 @@ public class IncidentReplayService {
     }
 
     public SseEmitter open(String scenarioId, String requestId) {
+        return open(scenarioId, requestId, null);
+    }
+
+    public SseEmitter open(String scenarioId, String requestId,
+                           FireStationCatalog.Station station) {
         if (!properties.isEnabled()) {
             throw new BffContractException(404, "INCIDENT_REPLAY_DISABLED",
                     "공개 합성 지령 replay가 비활성화되어 있습니다.", false);
         }
-        IncidentEnvelope envelope = catalog.create(scenarioId, requestId);
+        IncidentEnvelope envelope = catalog.create(scenarioId, requestId, station);
         SseEmitter emitter = new SseEmitter(properties.getTimeout().toMillis());
         AtomicReference<ScheduledFuture<?>> future = new AtomicReference<>();
         Runnable cancel = () -> {
