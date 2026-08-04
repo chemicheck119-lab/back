@@ -1,0 +1,143 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "케미체크119 전국 소방서 합성 데모 로그 API",
+    "version": "1.0.0",
+    "description": "실제 119 운영 기록과 분리된 PUBLIC_SYNTHETIC QA·시연 데이터 계약입니다."
+  },
+  "paths": {
+    "/api/c2guard/v1/demo/incident-logs": {
+      "get": {
+        "summary": "인증된 소방서 관할 합성 데모 로그 조회",
+        "security": [{"ServiceSession": []}],
+        "x-implementation-owner": "BE_Repository",
+        "x-data-classification": "PUBLIC_SYNTHETIC",
+        "x-operational-record": false,
+        "parameters": [
+          {"name": "offset", "in": "query", "schema": {"type": "integer", "minimum": 0, "default": 0}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}
+        ],
+        "responses": {
+          "200": {
+            "description": "현재 세션 stationId에 속한 합성 로그",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DemoIncidentLogPage"}}}
+          },
+          "401": {"description": "서명된 소방서 세션 없음"},
+          "403": {"description": "전국 소방서 카탈로그에 없는 stationId"},
+          "404": {"description": "합성 데모 로그 기능 비활성화"}
+        }
+      }
+    },
+    "/api/c2guard/v1/demo/incident-logs/coverage": {
+      "get": {
+        "summary": "전국 합성 데모 로그 적재 커버리지 조회",
+        "security": [{"ServiceSession": []}],
+        "x-implementation-owner": "BE_Repository",
+        "x-data-classification": "PUBLIC_SYNTHETIC",
+        "x-operational-record": false,
+        "responses": {
+          "200": {
+            "description": "시도·소방서별 적재 건수",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DemoIncidentLogCoverage"}}}
+          },
+          "401": {"description": "서명된 소방서 세션 없음"},
+          "404": {"description": "합성 데모 로그 기능 비활성화"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ServiceSession": {"type": "apiKey", "in": "cookie", "name": "CHEMICHECK119_SESSION"}
+    },
+    "schemas": {
+      "DemoIncidentLogPage": {
+        "type": "object",
+        "required": ["schemaVersion", "requestId", "datasetVersion", "dataClassification", "operationalRecord", "disclosure", "station", "totalElements", "offset", "limit", "logs"],
+        "properties": {
+          "schemaVersion": {"type": "string", "const": "chemicheck119-synthetic-demo-logs-v1"},
+          "requestId": {"type": "string"},
+          "datasetVersion": {"type": "string", "const": "synthetic-demo-log-v1"},
+          "dataClassification": {"type": "string", "const": "PUBLIC_SYNTHETIC"},
+          "operationalRecord": {"type": "boolean", "const": false},
+          "disclosure": {"type": "string"},
+          "station": {"$ref": "#/components/schemas/Station"},
+          "totalElements": {"type": "integer", "minimum": 0},
+          "offset": {"type": "integer", "minimum": 0},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+          "logs": {"type": "array", "items": {"$ref": "#/components/schemas/DemoIncidentLog"}}
+        }
+      },
+      "Station": {
+        "type": "object",
+        "required": ["stationId", "stationDisplayName", "region"],
+        "properties": {
+          "stationId": {"type": "string"},
+          "stationDisplayName": {"type": "string"},
+          "region": {"type": "string"}
+        }
+      },
+      "DemoIncidentLog": {
+        "type": "object",
+        "required": ["demoLogId", "scenarioId", "occurredAt", "facilityName", "facilityAddress", "incidentSubstanceName", "incidentSubstanceCas", "conflictSubstanceName", "conflictSubstanceCas", "ruleId", "ruleVersion", "severity", "riskLevel", "riskLevelKo", "hazardCodes", "gasProducts", "riskSummary", "performedAction", "briefApplicationStatus", "additionalFactor", "finalResponseOutcome", "dataClassification", "operationalRecord", "sourceName", "sourceUrl"],
+        "properties": {
+          "demoLogId": {"type": "string"},
+          "scenarioId": {"type": "string"},
+          "occurredAt": {"type": "string", "format": "date-time"},
+          "facilityName": {"type": "string"},
+          "facilityAddress": {"type": "string"},
+          "incidentSubstanceName": {"type": "string"},
+          "incidentSubstanceCas": {"type": "string"},
+          "conflictSubstanceName": {"type": "string"},
+          "conflictSubstanceCas": {"type": "string"},
+          "ruleId": {"type": "string"},
+          "ruleVersion": {"type": "string"},
+          "severity": {"type": "string"},
+          "riskLevel": {"type": "string", "enum": ["HIGH", "MEDIUM", "LOW"]},
+          "riskLevelKo": {"type": "string", "enum": ["높음", "중간", "낮음"]},
+          "hazardCodes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "gasProducts": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "riskSummary": {"type": "string"},
+          "performedAction": {"type": "string"},
+          "briefApplicationStatus": {"type": "string"},
+          "additionalFactor": {"type": "string"},
+          "finalResponseOutcome": {"type": "string"},
+          "dataClassification": {"type": "string", "const": "PUBLIC_SYNTHETIC"},
+          "operationalRecord": {"type": "boolean", "const": false},
+          "sourceName": {"type": "string"},
+          "sourceUrl": {"type": "string", "format": "uri"}
+        }
+      },
+      "DemoIncidentLogCoverage": {
+        "type": "object",
+        "required": ["schemaVersion", "requestId", "datasetVersion", "dataClassification", "operationalRecord", "disclosure", "regionCount", "stationCount", "scenarioCount", "totalLogCount", "regions"],
+        "properties": {
+          "schemaVersion": {"type": "string", "const": "chemicheck119-synthetic-demo-logs-v1"},
+          "requestId": {"type": "string"},
+          "datasetVersion": {"type": "string", "const": "synthetic-demo-log-v1"},
+          "dataClassification": {"type": "string", "const": "PUBLIC_SYNTHETIC"},
+          "operationalRecord": {"type": "boolean", "const": false},
+          "disclosure": {"type": "string"},
+          "regionCount": {"type": "integer", "const": 17},
+          "stationCount": {"type": "integer", "const": 215},
+          "scenarioCount": {"type": "integer", "const": 15},
+          "totalLogCount": {"type": "integer", "const": 3225},
+          "regions": {"type": "array", "items": {"$ref": "#/components/schemas/RegionCoverage"}}
+        }
+      },
+      "RegionCoverage": {
+        "type": "object",
+        "required": ["region", "stationCount", "logCount"],
+        "properties": {
+          "region": {"type": "string"},
+          "stationCount": {"type": "integer", "minimum": 1},
+          "logCount": {"type": "integer", "minimum": 15}
+        }
+      }
+    }
+  },
+  "x-contract-version": "chemicheck119-synthetic-demo-logs-v1",
+  "x-data-boundary": "PUBLIC_SYNTHETIC_ONLY",
+  "x-official-119-integration": false,
+  "x-production-default-enabled": false
+}

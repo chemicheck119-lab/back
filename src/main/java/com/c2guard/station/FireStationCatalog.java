@@ -27,6 +27,7 @@ public class FireStationCatalog {
             "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주");
 
     private Map<String, Station> stationsById = Map.of();
+    private List<Station> stations = List.of();
     private List<Region> regions = List.of();
     private LocalDate sourceDate;
 
@@ -76,6 +77,7 @@ public class FireStationCatalog {
             throw new IllegalStateException("소방서 카탈로그가 비어 있습니다.");
         }
         stationsById = Map.copyOf(loadedStations);
+        stations = List.copyOf(loadedStations.values());
         regions = byRegion.entrySet().stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .map(entry -> new Region(entry.getKey(), List.copyOf(entry.getValue())))
@@ -92,6 +94,10 @@ public class FireStationCatalog {
     public CatalogResponse response() {
         return new CatalogResponse(SCHEMA_VERSION, SOURCE_NAME, SOURCE_URL,
                 sourceDate, regions);
+    }
+
+    public List<Station> allStations() {
+        return stations;
     }
 
     private double parseLatitude(String value) {

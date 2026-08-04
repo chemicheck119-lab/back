@@ -29,6 +29,8 @@ class BffContractSnapshotTest {
             Path.of("contracts/upstream/model-api-integration-v1.json");
     private static final Path INCIDENT_REPLAY_CONTRACT =
             Path.of("contracts/incident-intake-replay-v1.openapi.json");
+    private static final Path SYNTHETIC_DEMO_LOG_CONTRACT =
+            Path.of("contracts/synthetic-demo-logs-v1.openapi.json");
 
     @Test
     void bffContractPublishesAuthenticatedBackendOwnedRoutes() throws IOException {
@@ -171,6 +173,33 @@ class BffContractSnapshotTest {
                 confirmationFixture.path("dataClassification").asText());
         assertEquals("SYNTHETIC_DEMO_CONFIRMATION",
                 confirmationFixture.path("confirmationType").asText());
+    }
+
+    @Test
+    void nationwideDemoLogContractCannotBeMistakenForOperationalRecords()
+            throws IOException {
+        JsonNode contract = read(SYNTHETIC_DEMO_LOG_CONTRACT);
+        assertEquals("chemicheck119-synthetic-demo-logs-v1",
+                contract.path("x-contract-version").asText());
+        assertEquals("PUBLIC_SYNTHETIC_ONLY",
+                contract.path("x-data-boundary").asText());
+        assertFalse(contract.path("x-official-119-integration").asBoolean(true));
+        assertFalse(contract.path("x-production-default-enabled").asBoolean(true));
+
+        for (String path : List.of("/api/c2guard/v1/demo/incident-logs",
+                "/api/c2guard/v1/demo/incident-logs/coverage")) {
+            JsonNode operation = contract.path("paths").path(path).path("get");
+            assertEquals("PUBLIC_SYNTHETIC",
+                    operation.path("x-data-classification").asText());
+            assertFalse(operation.path("x-operational-record").asBoolean(true));
+            assertTrue(operation.path("security").toString().contains("ServiceSession"));
+        }
+
+        JsonNode coverage = contract.path("components").path("schemas")
+                .path("DemoIncidentLogCoverage").path("properties");
+        assertEquals(17, coverage.path("regionCount").path("const").asInt());
+        assertEquals(215, coverage.path("stationCount").path("const").asInt());
+        assertEquals(3225, coverage.path("totalLogCount").path("const").asInt());
     }
 
     @Test
