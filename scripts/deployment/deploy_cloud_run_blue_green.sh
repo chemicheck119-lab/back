@@ -160,7 +160,7 @@ if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
   synthetic_confirmation_enabled=true
 fi
 
-env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
+env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_DEMO_LOGS_ENABLED=$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED;CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION=15;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
 secret_bindings="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION"
 
 if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
@@ -346,6 +346,43 @@ smoke() {
     if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" != "true" ]; then
       rm -f "$session_cookie_file"
       session_cookie_file=""
+    else
+      http_code="$(curl --silent --show-error \
+        --output "$health_file" \
+        --write-out '%{http_code}' \
+        --cookie "$session_cookie_file" \
+        "$base_url/api/c2guard/v1/demo/incident-logs/coverage")"
+      if [ "$http_code" != "200" ] || ! jq --exit-status \
+        '.schemaVersion == "chemicheck119-synthetic-demo-logs-v1"
+          and .dataClassification == "PUBLIC_SYNTHETIC"
+          and .operationalRecord == false
+          and .regionCount == 17
+          and .stationCount == 215
+          and .scenarioCount == 15
+          and .totalLogCount == 3225' \
+        "$health_file" >/dev/null; then
+        echo "Nationwide synthetic demo log coverage smoke failed: HTTP $http_code"
+        rm -f "$session_cookie_file" "$health_file"
+        return 1
+      fi
+
+      http_code="$(curl --silent --show-error \
+        --output "$health_file" \
+        --write-out '%{http_code}' \
+        --cookie "$session_cookie_file" \
+        "$base_url/api/c2guard/v1/demo/incident-logs?offset=0&limit=15")"
+      if [ "$http_code" != "200" ] || ! jq --exit-status \
+        --arg stationId "$pilot_station_id" \
+        '.station.stationId == $stationId
+          and .totalElements == 15
+          and (.logs | length) == 15
+          and ([.logs[].dataClassification] | all(. == "PUBLIC_SYNTHETIC"))
+          and ([.logs[].operationalRecord] | all(. == false))' \
+        "$health_file" >/dev/null; then
+        echo "Station-scoped synthetic demo logs smoke failed: HTTP $http_code"
+        rm -f "$session_cookie_file" "$health_file"
+        return 1
+      fi
     fi
   fi
 

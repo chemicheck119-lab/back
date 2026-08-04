@@ -4,6 +4,7 @@
 
 - `dashboard-bff-v1.openapi.json`: BE가 소유하는 FE 공개 계약
 - `incident-intake-replay-v1.openapi.json`: 공개 합성 지령 SSE·IncidentEnvelope 계약
+- `synthetic-demo-logs-v1.openapi.json`: 전국 소방서별 합성 분석·대응 로그 조회 계약
 - `upstream/model-api-v1.openapi.json`: `chemicheck119/llm` 모델 API 읽기 전용 스냅샷
 - `upstream/model-api-integration-v1.json`: 저장소 경계·agent memory 소유권 계약
 - `examples/bff/*.json`: FE·BE consumer fixture

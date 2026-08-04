@@ -74,6 +74,9 @@ chemicheck119:
     max-active-synthetic-incidents: ${CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS:100}
   persistence:
     require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
+  demo-logs:
+    enabled: ${CHEMICHECK119_DEMO_LOGS_ENABLED:false}
+    records-per-station: ${CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION:15}
 
 management:
   info:

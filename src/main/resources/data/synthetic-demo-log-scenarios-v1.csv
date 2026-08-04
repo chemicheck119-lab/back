@@ -1,0 +1,16 @@
+scenario_id,facility_type,incident_substance_name,incident_substance_cas,conflict_substance_name,conflict_substance_cas,severity,risk_level,risk_level_ko,hazard_codes,gas_products,risk_summary
+CAMEO-PAIR-01,수처리시설,차아염소산나트륨,7681-52-9,염산,7647-01-0,HIGH_RISK,HIGH,높음,C|E|F|G|NR|R1|R3|T,Acid Fumes|BR2|Cl2|ClO2|HX|NOx|O2|X2|X2O,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-02,식품가공시설,차아염소산나트륨,7681-52-9,에탄올,64-17-5,HIGH_RISK,HIGH,높음,C|E|F|G|NR|R1|R3|T,CO|CO2|H2|HX|X2|XO2,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-03,도료제조시설,차아염소산나트륨,7681-52-9,아세톤,67-64-1,HIGH_RISK,HIGH,높음,E|F|G|NR|R1|R3|T,Halocarbons,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-04,물류창고,차아염소산나트륨,7681-52-9,톨루엔,108-88-3,HIGH_RISK,HIGH,높음,E|G|NR|R1|R3|T,CO2,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-05,금속가공시설,차아염소산나트륨,7681-52-9,나트륨,7440-23-5,HIGH_RISK,HIGH,높음,C|E|F|G|R1|R3|T,H2,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-06,세정제제조시설,염산,7647-01-0,에탄올,64-17-5,CAUTION,MEDIUM,중간,NR|R1,,CAMEO 공개 원자료 기반 서수 등급 중간
+CAMEO-PAIR-07,연구시설,염산,7647-01-0,아세톤,67-64-1,NO_KNOWN_HAZARDOUS_REACTION,LOW,낮음,NR,,CAMEO 공개 원자료 기반 서수 등급 낮음이며 안전 보장을 뜻하지 않음
+CAMEO-PAIR-08,인쇄시설,염산,7647-01-0,톨루엔,108-88-3,NO_KNOWN_HAZARDOUS_REACTION,LOW,낮음,NR,,CAMEO 공개 원자료 기반 서수 등급 낮음이며 안전 보장을 뜻하지 않음
+CAMEO-PAIR-09,도금시설,염산,7647-01-0,나트륨,7440-23-5,HIGH_RISK,HIGH,높음,C|F|G|R1|R3,H2,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-10,폐수처리시설,에탄올,64-17-5,아세톤,67-64-1,CAUTION,MEDIUM,중간,E|R2,,CAMEO 공개 원자료 기반 서수 등급 중간
+CAMEO-PAIR-11,주류제조시설,에탄올,64-17-5,톨루엔,108-88-3,NO_KNOWN_HAZARDOUS_REACTION,LOW,낮음,NR,,CAMEO 공개 원자료 기반 서수 등급 낮음이며 안전 보장을 뜻하지 않음
+CAMEO-PAIR-12,합성수지제조시설,에탄올,64-17-5,나트륨,7440-23-5,HIGH_RISK,HIGH,높음,C|F|G|R1|R3,H2,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-13,전자부품제조시설,아세톤,67-64-1,톨루엔,108-88-3,NO_KNOWN_HAZARDOUS_REACTION,LOW,낮음,NR,,CAMEO 공개 원자료 기반 서수 등급 낮음이며 안전 보장을 뜻하지 않음
+CAMEO-PAIR-14,실험시설,아세톤,67-64-1,나트륨,7440-23-5,HIGH_RISK,HIGH,높음,F|G|R1,H2|Hydrocarbons,CAMEO 공개 원자료 기반 서수 등급 높음
+CAMEO-PAIR-15,저장시설,톨루엔,108-88-3,나트륨,7440-23-5,NO_KNOWN_HAZARDOUS_REACTION,LOW,낮음,NR,,CAMEO 공개 원자료 기반 서수 등급 낮음이며 안전 보장을 뜻하지 않음

@@ -1,0 +1,39 @@
+package com.c2guard.bff.demolog;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+
+record SyntheticDemoIncidentLog(
+        String demoLogId,
+        String datasetVersion,
+        String scenarioId,
+        String stationId,
+        String stationDisplayName,
+        String region,
+        OffsetDateTime occurredAt,
+        String facilityName,
+        String facilityAddress,
+        String incidentSubstanceName,
+        String incidentSubstanceCas,
+        String conflictSubstanceName,
+        String conflictSubstanceCas,
+        String ruleId,
+        String ruleVersion,
+        String severity,
+        String riskLevel,
+        String riskLevelKo,
+        List<String> hazardCodes,
+        List<String> gasProducts,
+        String riskSummary,
+        String performedAction,
+        String briefApplicationStatus,
+        String additionalFactor,
+        String finalResponseOutcome,
+        String dataClassification,
+        boolean operationalRecord,
+        String sourceName,
+        String sourceUrl,
+        String disclosure,
+        OffsetDateTime createdAt
+) {
+}

@@ -68,6 +68,16 @@
       ]
     },
     {
+      "path": "contracts/synthetic-demo-logs-v1.openapi.json",
+      "sha256": "676674c612611c1fb4b3a1c7ed926a43bb6829af6d15d0cd4bf5cf5856b2adbd",
+      "source": "BE_Repository local contract",
+      "localDecisions": [
+        "Every station in the pinned 17-region 215-station NFA public snapshot receives 15 deterministic scenarios",
+        "Synthetic demo logs are stored separately from operational response records",
+        "Every response is PUBLIC_SYNTHETIC with operationalRecord false and requires a signed station session"
+      ]
+    },
+    {
       "path": "contracts/examples/bff/incident_replay_event.json",
       "sha256": "698f34143c4d9f73a72ea1bc1cf6bb67eb760120dec9c50156c64920489be45e",
       "source": "BE_Repository local fixture",
