@@ -22,6 +22,7 @@ required_variables=(
   GCP_REQUIRE_EXTERNAL_DATABASE
   GCP_STAGING_AUTH_ENABLED
   GCP_PUBLIC_PILOT_ACCESS_ENABLED
+  GCP_NAVER_DIRECTIONS_ENABLED
 )
 for variable_name in "${required_variables[@]}"; do
   test -n "${!variable_name:-}" || {
@@ -52,6 +53,7 @@ fi
 [[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
 [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
 [[ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" =~ ^(true|false)$ ]]
+[[ "$GCP_NAVER_DIRECTIONS_ENABLED" =~ ^(true|false)$ ]]
 if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
   test "$GCP_STAGING_AUTH_ENABLED" = "true"
   test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
@@ -60,6 +62,24 @@ if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
 fi
 if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
   test "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true"
+fi
+if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
+  naver_directions_variables=(
+    GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME
+    GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION
+    GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME
+    GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION
+  )
+  for variable_name in "${naver_directions_variables[@]}"; do
+    test -n "${!variable_name:-}" || {
+      echo "Missing required Naver Directions variable: $variable_name"
+      exit 1
+    }
+  done
+  [[ "$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+  [[ "$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
 fi
 [[ "$RELEASE_GIT_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
@@ -160,8 +180,12 @@ if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
   synthetic_confirmation_enabled=true
 fi
 
-env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_DEMO_LOGS_ENABLED=$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED;CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION=15;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
+env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_NAVER_DIRECTIONS_ENABLED=$GCP_NAVER_DIRECTIONS_ENABLED;CHEMICHECK119_NAVER_DIRECTIONS_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_NAVER_DIRECTIONS_RESPONSE_TIMEOUT_SECONDS=5;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_DEMO_LOGS_ENABLED=$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED;CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION=15;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
 secret_bindings="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION"
+
+if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
+  secret_bindings+=",CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_ID=$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME:$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION,CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_SECRET=$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME:$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION"
+fi
 
 if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
   secret_bindings+=",CHEMICHECK119_DATABASE_URL=$GCP_DATABASE_URL_SECRET:$GCP_DATABASE_URL_SECRET_VERSION,CHEMICHECK119_DATABASE_USERNAME=$GCP_DATABASE_USERNAME_SECRET:$GCP_DATABASE_USERNAME_SECRET_VERSION,CHEMICHECK119_DATABASE_PASSWORD=$GCP_DATABASE_PASSWORD_SECRET:$GCP_DATABASE_PASSWORD_SECRET_VERSION"
@@ -299,6 +323,8 @@ smoke() {
   fi
 
   local session_cookie_file=""
+  local pilot_latitude=""
+  local pilot_longitude=""
   if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
     local pilot_station_id
     session_cookie_file="$(mktemp)"
@@ -337,12 +363,16 @@ smoke() {
     if [ "$http_code" != "200" ] || ! jq --exit-status \
       --arg stationId "$pilot_station_id" \
       '.stationId == $stationId and .stationLocation.coordinateSource == "NFA_PUBLIC_DATA"
+       and (.stationLocation.latitude | type) == "number"
+       and (.stationLocation.longitude | type) == "number"
        and (.roles | index("RESPONDER")) != null' \
       "$health_file" >/dev/null; then
       echo "Public pilot signed session smoke failed: HTTP $http_code"
       rm -f "$session_cookie_file" "$health_file"
       return 1
     fi
+    pilot_latitude="$(jq --raw-output '.stationLocation.latitude // empty' "$health_file")"
+    pilot_longitude="$(jq --raw-output '.stationLocation.longitude // empty' "$health_file")"
     if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" != "true" ]; then
       rm -f "$session_cookie_file"
       session_cookie_file=""
@@ -559,6 +589,46 @@ smoke() {
           echo "Synthetic replay to BFF to AI to CAMEO smoke failed: HTTP $http_code"
           rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
           return 1
+        fi
+        if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
+          local movement_request
+          movement_request="$(jq --null-input --compact-output \
+            --argjson latitude "$pilot_latitude" \
+            --argjson longitude "$pilot_longitude" \
+            --arg observedAt "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            '{
+              responderPosition: {
+                latitude: $latitude,
+                longitude: $longitude,
+                observedAt: $observedAt,
+                source: "MANUAL_DISPATCH"
+              },
+              journeyState: "EN_ROUTE",
+              clientSequence: 1
+            }')"
+          http_code="$(curl --silent --show-error \
+            --output "$confirmation_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "X-Request-Id: REQ-DEPLOY-NAVER-ROUTE-${RELEASE_GIT_COMMIT:0:8}" \
+            --data "$movement_request" \
+            "${replay_cookie_arguments[@]}" \
+            "$base_url/api/c2guard/v1/incidents/$replay_incident_id/movement")"
+          if [ "$http_code" != "200" ] || ! jq --exit-status \
+            '.mapContext.route.status == "AVAILABLE"
+              and .mapContext.route.provider == "NAVER_DIRECTIONS_5"
+              and .mapContext.route.providerMode == "LIVE_API"
+              and .mapContext.route.geometry.type == "LineString"
+              and (.mapContext.route.geometry.coordinates | length) >= 2
+              and .mapContext.route.totalDistanceM > 0
+              and .mapContext.route.etaSeconds > 0
+              and .mapContext.route.trafficApplied == true
+              and .routeRecalculated == true' "$confirmation_file" >/dev/null; then
+            echo "Naver Directions live road route smoke failed: HTTP $http_code"
+            rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
+            return 1
+          fi
         fi
       fi
       rm -f "$confirmation_file"

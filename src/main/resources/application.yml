@@ -64,6 +64,13 @@ chemicheck119:
   movement:
     next-refresh-seconds: ${CHEMICHECK119_MOVEMENT_NEXT_REFRESH_SECONDS:5}
     allow-demo-simulation: ${CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION:false}
+    naver-directions:
+      enabled: ${CHEMICHECK119_NAVER_DIRECTIONS_ENABLED:false}
+      base-url: ${CHEMICHECK119_NAVER_DIRECTIONS_BASE_URL:https://maps.apigw.ntruss.com}
+      client-id: ${CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_ID:}
+      client-secret: ${CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_SECRET:}
+      connect-timeout: ${CHEMICHECK119_NAVER_DIRECTIONS_CONNECT_TIMEOUT_SECONDS:2}s
+      response-timeout: ${CHEMICHECK119_NAVER_DIRECTIONS_RESPONSE_TIMEOUT_SECONDS:5}s
   incident-replay:
     enabled: ${CHEMICHECK119_INCIDENT_REPLAY_ENABLED:false}
     public-endpoint-enabled: ${CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED:false}

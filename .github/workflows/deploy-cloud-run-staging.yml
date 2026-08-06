@@ -38,6 +38,11 @@ on:
         required: true
         type: boolean
         default: false
+      naver_directions_enabled:
+        description: 네이버 Directions 5 실제 도로 경로·교통 ETA를 활성화합니다
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -74,6 +79,10 @@ jobs:
           GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
           GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
           GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
+          GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME }}
+          GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION }}
+          GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME }}
+          GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION }}
           GCP_DATABASE_URL_SECRET: ${{ vars.GCP_DATABASE_URL_SECRET }}
           GCP_DATABASE_URL_SECRET_VERSION: ${{ vars.GCP_DATABASE_URL_SECRET_VERSION }}
           GCP_DATABASE_USERNAME_SECRET: ${{ vars.GCP_DATABASE_USERNAME_SECRET }}
@@ -97,6 +106,7 @@ jobs:
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
           GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
+          GCP_NAVER_DIRECTIONS_ENABLED: ${{ inputs.naver_directions_enabled }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -121,7 +131,8 @@ jobs:
             GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED \
             GCP_REQUIRE_EXTERNAL_DATABASE \
             GCP_STAGING_AUTH_ENABLED \
-            GCP_PUBLIC_PILOT_ACCESS_ENABLED
+            GCP_PUBLIC_PILOT_ACCESS_ENABLED \
+            GCP_NAVER_DIRECTIONS_ENABLED
           do
             test -n "${!name:-}" || {
               echo "Missing required GitHub repository variable: $name"
@@ -141,6 +152,7 @@ jobs:
           [[ "$GCP_REQUIRE_EXTERNAL_DATABASE" =~ ^(true|false)$ ]]
           [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_NAVER_DIRECTIONS_ENABLED" =~ ^(true|false)$ ]]
           if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
             test "$GCP_STAGING_AUTH_ENABLED" = "true"
             test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
@@ -149,6 +161,23 @@ jobs:
           fi
           if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
             test "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true"
+          fi
+          if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
+            for name in \
+              GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME \
+              GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION \
+              GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME \
+              GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION
+            do
+              test -n "${!name:-}" || {
+                echo "Missing required Naver Directions variable: $name"
+                exit 1
+              }
+            done
+            [[ "$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]
+            [[ "$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+            [[ "$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]
+            [[ "$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           fi
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
           test "$GCP_CORS_ALLOWED_ORIGINS" = "https://chemicheck119.site"
@@ -237,6 +266,10 @@ jobs:
           GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
           GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
           GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
+          GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME }}
+          GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION }}
+          GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME }}
+          GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION }}
           GCP_DATABASE_URL_SECRET: ${{ vars.GCP_DATABASE_URL_SECRET }}
           GCP_DATABASE_URL_SECRET_VERSION: ${{ vars.GCP_DATABASE_URL_SECRET_VERSION }}
           GCP_DATABASE_USERNAME_SECRET: ${{ vars.GCP_DATABASE_USERNAME_SECRET }}
@@ -262,6 +295,7 @@ jobs:
           GCP_REQUIRE_EXTERNAL_DATABASE: "true"
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
           GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
+          GCP_NAVER_DIRECTIONS_ENABLED: ${{ inputs.naver_directions_enabled }}
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
       - name: Write deployment summary
@@ -282,6 +316,7 @@ jobs:
             echo "- Authenticated demo replay: \`${{ inputs.authenticated_demo_replay_enabled }}\`"
             echo "- Staging authentication: \`${{ inputs.staging_auth_enabled }}\`"
             echo "- Public pilot access: \`${{ inputs.public_pilot_access_enabled }}\`"
+            echo "- Naver Directions 5: \`${{ inputs.naver_directions_enabled }}\`"
             echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo

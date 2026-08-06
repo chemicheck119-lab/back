@@ -11,7 +11,8 @@ provider-neutral 지도 상태를 반환한다. 이 요청은 사고 분석이�
 - 분석 요청에서 검증된 사고 좌표와 출동소 표시명만 movement context로 보존
 - 5분 초과 GPS에서 `POSITION_STALE`과 빈 geometry/ETA 반환
 - 도착 상태에서 `ARRIVED`와 빈 geometry/ETA 반환
-- provider 미구성·장애에서 `ROUTE_UNAVAILABLE`을 반환하고 직선 경로를 만들지 않음
+- 네이버 Maps Directions 5 서버 API를 실제 도로 경로 provider로 지원
+- provider 미구성·장애·경로 없음에서 `ROUTE_UNAVAILABLE`을 반환하고 직선 경로를 만들지 않음
 - provider route가 현재 위치·사고 위치에서 1.5km를 벗어나면
   `ROUTE_ENDPOINT_MISMATCH`로 geometry/ETA를 숨김
 - RFC 7946 `LineString` 좌표를 `[longitude, latitude]` 순서로 반환
@@ -68,8 +69,20 @@ Cookie: CHEMICHECK119_SESSION=...
 기본 구성은 항상 `ROUTE_UNAVAILABLE`이다. `DEMO_SIMULATION`은 기본적으로 차단되며 명시적인
 비운영 환경에서만 `CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=true`로 허용한다.
 
-실제 지도 사업자, Secret, rate limit, cache TTL과 재탐색 임계값은 #7의 팀 결정 후 adapter로
-추가한다. 이번 구현은 유료 계정·지도 리소스·실제 Secret을 생성하거나 사용하지 않는다.
+네이버 adapter는 `start`/`goal`을 `경도,위도` 순서로 전송하고, `traoptimal` 응답의 실시간
+교통 반영 경로를 `LIVE_API`로 변환한다. 자격증명은 서버 전용 Secret으로만 주입하며 FE나
+일반 로그에 노출하지 않는다.
+
+```text
+CHEMICHECK119_NAVER_DIRECTIONS_ENABLED=true
+CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_ID=<Secret Manager 참조>
+CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_SECRET=<Secret Manager 참조>
+```
+
+provider가 반환한 도로 경로의 첫 좌표와 마지막 좌표는 각각 요청 위치와 사고 위치에서
+1.5km 이내여야 한다. 401/403과 잘못된 계약은 비재시도 실패, 429·5xx·통신 장애는 재시도
+가능 실패로 분류하지만 단일 movement 요청 안에서 자동 재호출하지는 않는다. 다음 GPS
+주기의 새 요청으로 재탐색한다.
 
 ## 현재 보존 한계
 
