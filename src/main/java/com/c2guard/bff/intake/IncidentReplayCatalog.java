@@ -19,6 +19,10 @@ public class IncidentReplayCatalog {
     public static final String CONTEST_SCENARIO_ID = "CONTEST-LIVE-CHEMICAL-001";
     private static final String SCHEMA_VERSION = "chemicheck119-incident-envelope-v1";
     private static final String SOURCE_SCHEMA_VERSION = "public-replay-v1";
+    static final double STATION_INCIDENT_DISTANCE_METERS = 1_200.0;
+    private static final double EARTH_RADIUS_METERS = 6_371_008.8;
+    private static final double KOREA_CENTER_LATITUDE = 36.5;
+    private static final double KOREA_CENTER_LONGITUDE = 127.8;
 
     private final Clock clock;
 
@@ -59,7 +63,7 @@ public class IncidentReplayCatalog {
                 : List.of(bigDataReference(), new IncidentDatasetReference(
                 FireStationCatalog.SOURCE_NAME,
                 FireStationCatalog.SOURCE_URL,
-                "선택 소방서 공개 좌표를 합성 출동 기준점으로 사용"));
+                "선택 소방서 공개 좌표에서 내륙 방향 약 1.2km 지점을 합성 사고 위치로 사용"));
         return new IncidentEnvelope(
                 SCHEMA_VERSION,
                 "INC-PUBLIC-" + replaySuffix,
@@ -84,22 +88,31 @@ public class IncidentReplayCatalog {
     }
 
     private IncidentLocation stationScopedIncidentLocation(FireStationCatalog.Station station) {
-        double latitude = station.latitude();
-        double longitude = station.longitude();
-        double longitudeScale = Math.cos(Math.toRadians(latitude));
-        double latitudeVector = 36.5 - latitude;
-        double longitudeVector = (127.8 - longitude) * longitudeScale;
-        double vectorLength = Math.hypot(latitudeVector, longitudeVector);
-        double offsetDegrees = 0.035;
-        if (vectorLength < 0.000001) {
-            latitudeVector = offsetDegrees;
-            longitudeVector = 0;
-            vectorLength = offsetDegrees;
+        double latitudeRadians = Math.toRadians(station.latitude());
+        double longitudeRadians = Math.toRadians(station.longitude());
+        double centerLatitudeRadians = Math.toRadians(KOREA_CENTER_LATITUDE);
+        double centerLongitudeRadians = Math.toRadians(KOREA_CENTER_LONGITUDE);
+        double longitudeDelta = centerLongitudeRadians - longitudeRadians;
+        double bearing = Math.atan2(
+                Math.sin(longitudeDelta) * Math.cos(centerLatitudeRadians),
+                Math.cos(latitudeRadians) * Math.sin(centerLatitudeRadians)
+                        - Math.sin(latitudeRadians) * Math.cos(centerLatitudeRadians)
+                        * Math.cos(longitudeDelta));
+        if (!Double.isFinite(bearing)) {
+            bearing = 0;
         }
-        double incidentLatitude = latitude
-                + latitudeVector / vectorLength * offsetDegrees;
-        double incidentLongitude = longitude
-                + longitudeVector / vectorLength * offsetDegrees / longitudeScale;
+
+        double angularDistance = STATION_INCIDENT_DISTANCE_METERS / EARTH_RADIUS_METERS;
+        double incidentLatitudeRadians = Math.asin(
+                Math.sin(latitudeRadians) * Math.cos(angularDistance)
+                        + Math.cos(latitudeRadians) * Math.sin(angularDistance)
+                        * Math.cos(bearing));
+        double incidentLongitudeRadians = longitudeRadians + Math.atan2(
+                Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitudeRadians),
+                Math.cos(angularDistance)
+                        - Math.sin(latitudeRadians) * Math.sin(incidentLatitudeRadians));
+        double incidentLatitude = Math.toDegrees(incidentLatitudeRadians);
+        double incidentLongitude = Math.toDegrees(incidentLongitudeRadians);
         return new IncidentLocation(coordinate(incidentLatitude), coordinate(incidentLongitude));
     }
 

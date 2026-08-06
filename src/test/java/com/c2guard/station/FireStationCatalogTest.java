@@ -45,17 +45,32 @@ class FireStationCatalogTest {
                     IncidentEnvelope envelope = replayCatalog.create(
                             IncidentReplayCatalog.CONTEST_SCENARIO_ID,
                             "REQ-NATIONWIDE-CATALOG", station);
-                    double latitudeDelta = envelope.location().latitude().doubleValue()
-                            - station.latitude();
-                    double longitudeDelta = (envelope.location().longitude().doubleValue()
-                            - station.longitude()) * Math.cos(Math.toRadians(station.latitude()));
-                    double offsetDegrees = Math.hypot(latitudeDelta, longitudeDelta);
+                    double distanceMeters = distanceMeters(
+                            station.latitude(), station.longitude(),
+                            envelope.location().latitude().doubleValue(),
+                            envelope.location().longitude().doubleValue());
 
                     assertEquals(station.stationId(), envelope.stationId());
                     assertEquals(station.stationDisplayName(), envelope.stationDisplayName());
-                    assertTrue(offsetDegrees > 0.034 && offsetDegrees < 0.036,
-                            () -> "합성 사고 좌표가 관할 인근 범위를 벗어남: "
+                    assertTrue(distanceMeters >= 1_190 && distanceMeters <= 1_210,
+                            () -> "합성 사고 좌표가 소방서 인접 범위를 벗어남: "
+                                    + station.stationDisplayName() + " / " + distanceMeters + "m");
+                    assertTrue(envelope.location().latitude().doubleValue() >= 32
+                                    && envelope.location().latitude().doubleValue() <= 39.5
+                                    && envelope.location().longitude().doubleValue() >= 124
+                                    && envelope.location().longitude().doubleValue() <= 132,
+                            () -> "합성 사고 좌표가 대한민국 좌표 범위를 벗어남: "
                                     + station.stationDisplayName());
                 });
+    }
+
+    private double distanceMeters(double latitudeA, double longitudeA,
+                                  double latitudeB, double longitudeB) {
+        double latitudeDelta = Math.toRadians(latitudeB - latitudeA);
+        double longitudeDelta = Math.toRadians(longitudeB - longitudeA);
+        double a = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(Math.toRadians(latitudeA)) * Math.cos(Math.toRadians(latitudeB))
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        return 6_371_008.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }
