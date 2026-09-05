@@ -10,6 +10,8 @@ public class ModelApiProperties {
 
     private URI baseUrl = URI.create("http://localhost:8000");
     private String apiKey = "";
+    private boolean iamAuthenticationEnabled = false;
+    private String iamAudience = "";
     private String schema = "chemiguard119-api-v1";
     private Duration connectTimeout = Duration.ofSeconds(2);
     private Duration responseTimeout = Duration.ofSeconds(15);
@@ -29,6 +31,25 @@ public class ModelApiProperties {
 
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey == null ? "" : apiKey;
+    }
+
+    public boolean isIamAuthenticationEnabled() {
+        return iamAuthenticationEnabled;
+    }
+
+    public void setIamAuthenticationEnabled(boolean iamAuthenticationEnabled) {
+        this.iamAuthenticationEnabled = iamAuthenticationEnabled;
+    }
+
+    public String getIamAudience() {
+        if (iamAudience != null && !iamAudience.isBlank()) {
+            return trimTrailingSlash(iamAudience.trim());
+        }
+        return trimTrailingSlash(baseUrl.toString());
+    }
+
+    public void setIamAudience(String iamAudience) {
+        this.iamAudience = iamAudience == null ? "" : iamAudience;
     }
 
     public String getSchema() {
@@ -65,5 +86,13 @@ public class ModelApiProperties {
 
     public boolean hasApiKey() {
         return apiKey != null && !apiKey.isBlank();
+    }
+
+    private static String trimTrailingSlash(String value) {
+        int end = value.length();
+        while (end > 0 && value.charAt(end - 1) == '/') {
+            end--;
+        }
+        return value.substring(0, end);
     }
 }

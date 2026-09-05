@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -36,20 +37,31 @@ final class RestModelApiClient implements ModelApiClient {
     private final ModelApiProperties properties;
     private final RetrySleeper retrySleeper;
     private final ModelApiTelemetry telemetry;
+    private final ModelApiIdentityTokenProvider identityTokenProvider;
 
     RestModelApiClient(RestClient restClient, ObjectMapper objectMapper,
                        ModelApiProperties properties, RetrySleeper retrySleeper) {
-        this(restClient, objectMapper, properties, retrySleeper, ModelApiTelemetry.noop());
+        this(restClient, objectMapper, properties, retrySleeper, ModelApiTelemetry.noop(),
+                ModelApiIdentityTokenProvider.disabled());
     }
 
     RestModelApiClient(RestClient restClient, ObjectMapper objectMapper,
                        ModelApiProperties properties, RetrySleeper retrySleeper,
                        ModelApiTelemetry telemetry) {
+        this(restClient, objectMapper, properties, retrySleeper, telemetry,
+                ModelApiIdentityTokenProvider.disabled());
+    }
+
+    RestModelApiClient(RestClient restClient, ObjectMapper objectMapper,
+                       ModelApiProperties properties, RetrySleeper retrySleeper,
+                       ModelApiTelemetry telemetry,
+                       ModelApiIdentityTokenProvider identityTokenProvider) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.retrySleeper = retrySleeper;
         this.telemetry = telemetry;
+        this.identityTokenProvider = identityTokenProvider;
     }
 
     @Override
@@ -141,6 +153,10 @@ final class RestModelApiClient implements ModelApiClient {
                     telemetry.recordSuccess(path, attempts, durationNanos);
                     logSuccess(method, path, requestId, durationNanos, attempts);
                     return response;
+                } catch (IOException error) {
+                    throw exception(ModelApiErrorKind.AUTHENTICATION, "MODEL_IAM_TOKEN_FAILED",
+                            "모델 서비스 인증 토큰을 발급할 수 없습니다.", false,
+                            null, requestId, List.of(), error);
                 } catch (ResourceAccessException error) {
                     ModelApiException mapped = mapResourceAccess(error, requestId);
                     if (attempt < maxAttempts && mapped.allowsAutomaticRetry()) {
@@ -182,11 +198,15 @@ final class RestModelApiClient implements ModelApiClient {
     }
 
     private ModelApiResponse exchange(HttpMethod method, String path, JsonNode request,
-                                      String requestId, boolean authenticated) {
+                                      String requestId, boolean authenticated) throws IOException {
         RestClient.RequestBodySpec requestSpec = restClient.method(method)
                 .uri(path)
                 .header(REQUEST_ID_HEADER, requestId)
                 .accept(MediaType.APPLICATION_JSON);
+        if (properties.isIamAuthenticationEnabled()) {
+            requestSpec.header(HttpHeaders.AUTHORIZATION,
+                    identityTokenProvider.authorizationHeader());
+        }
         if (authenticated) {
             requestSpec.header(API_KEY_HEADER, properties.getApiKey());
         }

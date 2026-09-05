@@ -120,6 +120,40 @@ class RestModelApiClientTest {
     }
 
     @Test
+    void cloudRunIamAddsIdentityTokenToHealthAndProtectedCalls() throws Exception {
+        properties.setIamAuthenticationEnabled(true);
+        client = client(properties, millis -> { }, () -> "Bearer test-cloud-run-id-token");
+        server.enqueue(okJson("{}"));
+        server.enqueue(okJson("{}"));
+
+        client.live(REQUEST_ID);
+        client.resolveSubstances(query(), REQUEST_ID);
+
+        RecordedRequest health = server.takeRequest();
+        RecordedRequest protectedCall = server.takeRequest();
+        assertEquals("Bearer test-cloud-run-id-token", health.getHeader("Authorization"));
+        assertEquals(null, health.getHeader(RestModelApiClient.API_KEY_HEADER));
+        assertEquals("Bearer test-cloud-run-id-token", protectedCall.getHeader("Authorization"));
+        assertEquals(API_KEY, protectedCall.getHeader(RestModelApiClient.API_KEY_HEADER));
+    }
+
+    @Test
+    void identityTokenFailureIsFailClosedBeforeNetworkCall() {
+        properties.setIamAuthenticationEnabled(true);
+        client = client(properties, millis -> { }, () -> {
+            throw new IOException("metadata unavailable");
+        });
+
+        ModelApiException error = assertThrows(ModelApiException.class,
+                () -> client.resolveSubstances(query(), REQUEST_ID));
+
+        assertEquals(ModelApiErrorKind.AUTHENTICATION, error.getKind());
+        assertEquals("MODEL_IAM_TOKEN_FAILED", error.getCode());
+        assertFalse(error.isRetryable());
+        assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
     void retryable503RetriesOnlyOnceAndKeepsRequestId() throws Exception {
         server.enqueue(errorJson(503, "MODEL_NOT_READY", true));
         server.enqueue(okJson("{}"));
@@ -270,6 +304,11 @@ class RestModelApiClientTest {
     }
 
     private ModelApiClient client(ModelApiProperties clientProperties, RetrySleeper sleeper) {
+        return client(clientProperties, sleeper, ModelApiIdentityTokenProvider.disabled());
+    }
+
+    private ModelApiClient client(ModelApiProperties clientProperties, RetrySleeper sleeper,
+                                  ModelApiIdentityTokenProvider identityTokenProvider) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(clientProperties.getConnectTimeout())
                 .build();
@@ -280,7 +319,7 @@ class RestModelApiClientTest {
                 .requestFactory(requestFactory)
                 .build();
         return new RestModelApiClient(restClient, objectMapper, clientProperties, sleeper,
-                new ModelApiTelemetry(meterRegistry));
+                new ModelApiTelemetry(meterRegistry), identityTokenProvider);
     }
 
     private ModelApiProperties properties(URI baseUrl) {

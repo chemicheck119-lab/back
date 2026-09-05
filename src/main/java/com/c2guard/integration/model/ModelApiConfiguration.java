@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
 import java.net.http.HttpClient;
 
 @Configuration
@@ -29,11 +30,21 @@ public class ModelApiConfiguration {
     }
 
     @Bean
+    ModelApiIdentityTokenProvider modelApiIdentityTokenProvider(ModelApiProperties properties)
+            throws IOException {
+        if (!properties.isIamAuthenticationEnabled()) {
+            return ModelApiIdentityTokenProvider.disabled();
+        }
+        return new GoogleModelApiIdentityTokenProvider(properties.getIamAudience());
+    }
+
+    @Bean
     ModelApiClient modelApiClient(RestClient modelApiRestClient,
                                   ObjectMapper objectMapper,
                                   ModelApiProperties properties,
-                                  MeterRegistry meterRegistry) {
+                                  MeterRegistry meterRegistry,
+                                  ModelApiIdentityTokenProvider identityTokenProvider) {
         return new RestModelApiClient(modelApiRestClient, objectMapper, properties,
-                Thread::sleep, new ModelApiTelemetry(meterRegistry));
+                Thread::sleep, new ModelApiTelemetry(meterRegistry), identityTokenProvider);
     }
 }
