@@ -15,17 +15,20 @@ sequence 단조 증가, response record의 다중 snapshot 결합을 SQL constra
 
 - `incidents`: 사고 aggregate와 마지막 기록 활동 시각
 - `incident_agent_memories`: AI agent memory revision·부모 checksum·event snapshot
-- `incident_analysis_snapshots`: AI 원본, 검증된 agent 응답, FE용 BFF 응답 전체 JSON. 이 안의
-  evidence와 model/data/rule/schema provenance도 원형으로 보존한다.
+- `incident_analysis_snapshots`: AI 원본, 검증된 agent 응답, FE용 BFF 응답 전체 JSON과 분석에
+  사용한 역할별 confirmation ID. evidence와 model/data/rule/schema provenance도 원형으로
+  보존한다.
 - `substance_confirmations`와 `incident_confirmation_heads`: 인증 사용자 확인 이력과 사고·역할별
   활성 revision
 - `incident_movement_contexts`와 `incident_movement_states`: 기록 시점에 결합할 최신 위치 상태
 - `response_records` 및 하위 message/reference/snapshot table: 대화와 권위 ID를 단일 transaction으로
   결합한 최종 대응기록
 
-`POST /api/c2guard/v1/incidents/{incidentId}/record`는 같은 사고에 속한 서버 저장
-analysis/confirmation만 참조한다. FE가 AI snapshot을 다시 보내도 권위 데이터로 저장하지 않는다.
-동일 사용자·사고·대화·참조 묶음은 fingerprint unique constraint로 멱등 처리한다.
+`POST /api/c2guard/v1/incidents/{incidentId}/record`는 같은 사고에 속하고 현재 활성
+confirmation 집합과 결합된 서버 저장 analysis만 참조한다. FE가 AI snapshot을 다시 보내도
+권위 데이터로 저장하지 않는다. correction 전 snapshot·confirmation은 감사 이력으로 남지만
+새 결과와 결합할 수 없다. 동일 사용자·사고·대화·참조 묶음은 fingerprint unique constraint로
+멱등 처리한다.
 
 ## 환경변수
 
