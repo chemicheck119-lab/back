@@ -11,6 +11,8 @@ metadata 조회에는 request ID만 전달한다. API key가 없으면 보호 AP
 | --- | --- | --- |
 | `CHEMICHECK119_MODEL_API_BASE_URL` | `http://localhost:8000` | AI Model API 주소 |
 | `CHEMICHECK119_MODEL_API_KEY` | 없음 | 보호 API용 shared secret. 운영 환경에서는 필수 |
+| `CHEMICHECK119_MODEL_API_IAM_ENABLED` | `false` | Cloud Run 서비스 간 IAM ID 토큰 인증 사용 여부 |
+| `CHEMICHECK119_MODEL_API_IAM_AUDIENCE` | Model API 주소 | ID 토큰의 audience. 비어 있으면 `BASE_URL` 사용 |
 | `CHEMICHECK119_MODEL_API_SCHEMA` | `chemiguard119-api-v1` | BFF가 허용하는 응답 schema version |
 | `CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS` | `2` | 연결 제한 시간(초) |
 | `CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS` | `15` | 응답 제한 시간(초) |
