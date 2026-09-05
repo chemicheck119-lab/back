@@ -8,7 +8,7 @@
 - 참가 부문: [제6회 소방안전 빅데이터 활용 및 아이디어 경진대회](https://www.bigdata-119.kr/) · 서비스 개발 부문
 - Backend Stack: Java 17 · Spring Boot 3.3 · Spring Security · Spring JDBC · PostgreSQL · Flyway
 - Infrastructure: Docker · GitHub Actions · GCP Cloud Run · Cloud SQL · Secret Manager
-- Related: [Frontend](https://github.com/chemicheck119/front) · [AI / Model API](https://github.com/chemicheck119/llm)
+- Related: [Frontend](https://github.com/chemicheck119-lab/front) · [AI / Model API](https://github.com/chemicheck119-lab/llm)
 
 ## 무엇을 해결하는가
 
@@ -153,7 +153,7 @@ FE 요청부터 Model API 호출까지 같은 request ID를 사용합니다. 로
 ### 실행
 
 ```bash
-git clone https://github.com/chemicheck119/back.git
+git clone https://github.com/chemicheck119-lab/back.git
 cd back
 
 SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun

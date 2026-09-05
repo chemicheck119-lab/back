@@ -18,7 +18,7 @@ public class LegacyDeprecationFilter extends OncePerRequestFilter {
 
     static final String DEPRECATION_HEADER = "Deprecation";
     static final String DEPRECATION_LINK =
-            "<https://github.com/chemicheck119/BE_Repository/blob/develop/"
+            "<https://github.com/chemicheck119-lab/back/blob/develop/"
                     + "docs/BFF_V1_API_CONTRACT.md>; rel=\"deprecation\"";
 
     private static final Set<String> EXACT_PATHS = Set.of(

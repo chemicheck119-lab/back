@@ -18,7 +18,7 @@ FROM eclipse-temurin:17-jre-jammy@sha256:475d8e96b4b2bfe08999e5e854755c773af1581
 ARG BUILD_REVISION=unknown
 
 LABEL org.opencontainers.image.title="chemicheck119-be" \
-      org.opencontainers.image.source="https://github.com/chemicheck119/BE_Repository" \
+      org.opencontainers.image.source="https://github.com/chemicheck119-lab/back" \
       org.opencontainers.image.revision="${BUILD_REVISION}"
 
 RUN groupadd --system --gid 10001 c2guard \
