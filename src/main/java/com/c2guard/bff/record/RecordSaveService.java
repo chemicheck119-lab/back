@@ -1,6 +1,7 @@
 package com.c2guard.bff.record;
 
 import com.c2guard.bff.common.BffContractException;
+import com.c2guard.bff.confirmation.ConfirmationRole;
 import com.c2guard.bff.confirmation.ConfirmationStore;
 import com.c2guard.bff.confirmation.SubstanceConfirmation;
 import com.c2guard.bff.incident.IncidentAgentMemoryStore;
@@ -16,8 +17,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -62,12 +65,25 @@ public class RecordSaveService {
         validateMessageReferences(request, request.analysisIds());
         validateOutcome(request.outcomeReport());
         try {
-            List<IncidentAnalysisSnapshotStore.Snapshot> analyses =
-                    validateAnalyses(incidentId, request.analysisIds());
+            String recordFingerprint = fingerprint.calculate(
+                    incidentId, request, principal);
+            StoredResponseRecord existing = recordStore
+                    .findByFingerprint(recordFingerprint)
+                    .orElse(null);
+            if (existing != null) {
+                return new RecordSaveResponse(requestId, incidentId,
+                        existing.recordId(), existing.savedAt());
+            }
+            Map<ConfirmationRole, SubstanceConfirmation> activeConfirmations =
+                    confirmationStore.findActiveForIncident(incidentId);
             List<SubstanceConfirmation> confirmations =
-                    validateConfirmations(incidentId, request.confirmationIds());
+                    validateConfirmations(incidentId, request.confirmationIds(),
+                            activeConfirmations);
+            List<IncidentAnalysisSnapshotStore.Snapshot> analyses =
+                    validateAnalyses(incidentId, request.analysisIds(),
+                            activeConfirmations);
             StoredResponseRecord stored = recordStore.save(incidentId, request,
-                    fingerprint.calculate(incidentId, request, principal), requestId,
+                    recordFingerprint, requestId,
                     principal, analyses, confirmations, memoryStore.find(incidentId),
                     movementContextStore.find(incidentId),
                     movementStateStore.find(incidentId));
@@ -106,7 +122,8 @@ public class RecordSaveService {
     }
 
     private List<IncidentAnalysisSnapshotStore.Snapshot> validateAnalyses(
-            String incidentId, List<String> analysisIds) {
+            String incidentId, List<String> analysisIds,
+            Map<ConfirmationRole, SubstanceConfirmation> activeConfirmations) {
         if (new HashSet<>(analysisIds).size() != analysisIds.size()) {
             throw referenceConflict();
         }
@@ -119,13 +136,32 @@ public class RecordSaveService {
             }
             analyses.add(analysis);
         }
+        IncidentAnalysisSnapshotStore.Snapshot latest = analyses.stream()
+                .max(Comparator.comparing(
+                                IncidentAnalysisSnapshotStore.Snapshot::createdAt)
+                        .thenComparing(
+                                IncidentAnalysisSnapshotStore.Snapshot::analysisId))
+                .orElseThrow(RecordSaveService::referenceConflict);
+        if (!latest.matchesConfirmations(activeConfirmations)) {
+            throw new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
+                    "현재 confirmation과 결합되지 않은 분석은 대응 기록에 저장할 수 없습니다.",
+                    false);
+        }
         return List.copyOf(analyses);
     }
 
     private List<SubstanceConfirmation> validateConfirmations(
-            String incidentId, List<String> confirmationIds) {
+            String incidentId, List<String> confirmationIds,
+            Map<ConfirmationRole, SubstanceConfirmation> activeConfirmations) {
         if (new HashSet<>(confirmationIds).size() != confirmationIds.size()) {
             throw referenceConflict();
+        }
+        Set<String> activeIds = new HashSet<>();
+        activeConfirmations.values().forEach(value ->
+                activeIds.add(value.confirmationId()));
+        if (!activeIds.equals(new HashSet<>(confirmationIds))) {
+            throw new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
+                    "현재 활성 confirmation ID 전체와 요청이 일치해야 합니다.", false);
         }
         List<SubstanceConfirmation> confirmations = new ArrayList<>();
         for (String confirmationId : confirmationIds) {

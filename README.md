@@ -80,6 +80,7 @@ AI가 추정한 물질을 자동 확정하지 않습니다. 사고물질과 시�
 - 동일 요청은 기존 결과를 반환하는 멱등 처리
 - 정정 시 기존 확인을 덮어쓰지 않고 append-only revision 추가
 - 과거 confirmation을 보존하고 현재 활성 revision만 다음 분석에 주입
+- analysis snapshot을 당시 활성 confirmation ID와 결합해 정정 전 결과 재사용 차단
 
 ### 3. 세션·사고 접근 제어
 

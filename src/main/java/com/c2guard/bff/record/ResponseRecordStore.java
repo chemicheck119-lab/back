@@ -1,5 +1,7 @@
 package com.c2guard.bff.record;
 
+import com.c2guard.bff.common.BffContractException;
+import com.c2guard.bff.confirmation.ConfirmationRole;
 import com.c2guard.bff.confirmation.SubstanceConfirmation;
 import com.c2guard.bff.incident.IncidentAgentMemoryStore;
 import com.c2guard.bff.incident.IncidentAnalysisSnapshotStore;
@@ -16,7 +18,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -68,6 +72,7 @@ public class ResponseRecordStore {
                     if (concurrent.isPresent()) {
                         return concurrent.get();
                     }
+                    lockAndValidateConfirmationHeads(incidentId, confirmations);
                     insertRecord(recordId, incidentId, request, fingerprint, requestId,
                             principal, savedAt, agentMemory);
                     insertMessages(recordId, request.messages());
@@ -96,6 +101,31 @@ public class ResponseRecordStore {
             }
         }
         throw new IllegalStateException("고유한 record ID를 생성하지 못했습니다.");
+    }
+
+    private void lockAndValidateConfirmationHeads(
+            String incidentId,
+            List<SubstanceConfirmation> confirmations) {
+        Map<ConfirmationRole, String> expected = new EnumMap<>(ConfirmationRole.class);
+        confirmations.forEach(value -> expected.put(value.role(), value.confirmationId()));
+        Map<ConfirmationRole, String> current = new EnumMap<>(ConfirmationRole.class);
+        jdbcTemplate.query("""
+                        SELECT confirmation_role, active_confirmation_id
+                        FROM incident_confirmation_heads
+                        WHERE incident_id = ?
+                        FOR UPDATE
+                        """, resultSet -> {
+                    String activeId = resultSet.getString("active_confirmation_id");
+                    if (activeId != null) {
+                        current.put(ConfirmationRole.valueOf(
+                                resultSet.getString("confirmation_role")), activeId);
+                    }
+                }, incidentId);
+        if (!current.equals(expected)) {
+            throw new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
+                    "기록 저장 중 confirmation이 변경됐습니다. 최신 분석으로 다시 시도하세요.",
+                    false);
+        }
     }
 
     private void ensureIncident(String incidentId) {
@@ -135,7 +165,7 @@ public class ResponseRecordStore {
         return count == null ? 0 : count;
     }
 
-    private Optional<StoredResponseRecord> findByFingerprint(String fingerprint) {
+    Optional<StoredResponseRecord> findByFingerprint(String fingerprint) {
         return query("SELECT * FROM response_records WHERE record_fingerprint = ?",
                 fingerprint);
     }

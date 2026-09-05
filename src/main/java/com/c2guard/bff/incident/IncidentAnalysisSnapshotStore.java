@@ -1,6 +1,8 @@
 package com.c2guard.bff.incident;
 
 import com.c2guard.bff.common.BffContractException;
+import com.c2guard.bff.confirmation.ConfirmationRole;
+import com.c2guard.bff.confirmation.SubstanceConfirmation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -14,6 +16,8 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -42,20 +46,30 @@ public class IncidentAnalysisSnapshotStore {
     public void save(String incidentId, String analysisId, String requestId,
                      JsonNode modelResponse, JsonNode bffResponse) {
         save(incidentId, analysisId, requestId, modelResponse, bffResponse,
-                NullNode.getInstance());
+                NullNode.getInstance(), Map.of());
     }
 
     public void save(String incidentId, String analysisId, String requestId,
                      JsonNode modelResponse, JsonNode bffResponse,
                      JsonNode agentResponse) {
+        save(incidentId, analysisId, requestId, modelResponse, bffResponse,
+                agentResponse, Map.of());
+    }
+
+    public void save(String incidentId, String analysisId, String requestId,
+                     JsonNode modelResponse, JsonNode bffResponse,
+                     JsonNode agentResponse,
+                     Map<ConfirmationRole, SubstanceConfirmation> confirmations) {
+        ConfirmationBindings bindings = ConfirmationBindings.from(confirmations);
         if (jdbcTemplate != null) {
             saveDatabase(incidentId, analysisId, requestId, modelResponse,
-                    bffResponse, agentResponse);
+                    bffResponse, agentResponse, bindings);
             return;
         }
         Snapshot snapshot = new Snapshot(incidentId, analysisId, requestId,
                 modelResponse.deepCopy(), bffResponse.deepCopy(),
-                agentResponse.deepCopy(), clock.instant());
+                agentResponse.deepCopy(), bindings.incidentConfirmationId(),
+                bindings.facilityConfirmationId(), clock.instant());
         if (snapshots.putIfAbsent(analysisId, snapshot) != null) {
             throw new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
                     "이미 저장된 분석 ID가 다시 반환됐습니다.", false);
@@ -68,7 +82,8 @@ public class IncidentAnalysisSnapshotStore {
             return query("""
                     SELECT incident_id, analysis_id, request_id,
                            model_response_json, bff_response_json,
-                           agent_response_json, created_at
+                           agent_response_json, incident_confirmation_id,
+                           facility_confirmation_id, created_at
                     FROM incident_analysis_snapshots
                     WHERE analysis_id = ?
                     """, analysisId).stream().findFirst();
@@ -81,7 +96,8 @@ public class IncidentAnalysisSnapshotStore {
             return query("""
                     SELECT incident_id, analysis_id, request_id,
                            model_response_json, bff_response_json,
-                           agent_response_json, created_at
+                           agent_response_json, incident_confirmation_id,
+                           facility_confirmation_id, created_at
                     FROM incident_analysis_snapshots
                     WHERE incident_id = ?
                     ORDER BY created_at DESC, analysis_id DESC
@@ -103,16 +119,20 @@ public class IncidentAnalysisSnapshotStore {
 
     private void saveDatabase(String incidentId, String analysisId, String requestId,
                               JsonNode modelResponse, JsonNode bffResponse,
-                              JsonNode agentResponse) {
+                              JsonNode agentResponse,
+                              ConfirmationBindings bindings) {
         try {
             jdbcTemplate.update("""
                             INSERT INTO incident_analysis_snapshots (
                                 analysis_id, incident_id, request_id,
                                 model_response_json, bff_response_json,
-                                agent_response_json, created_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                                agent_response_json, incident_confirmation_id,
+                                facility_confirmation_id, created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, analysisId, incidentId, requestId,
                     json(modelResponse), json(bffResponse), json(agentResponse),
+                    bindings.incidentConfirmationId(),
+                    bindings.facilityConfirmationId(),
                     OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         } catch (DataIntegrityViolationException duplicate) {
             throw new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
@@ -131,6 +151,8 @@ public class IncidentAnalysisSnapshotStore {
                     jsonNode(resultSet.getString("model_response_json")),
                     jsonNode(resultSet.getString("bff_response_json")),
                     jsonNode(resultSet.getString("agent_response_json")),
+                    resultSet.getString("incident_confirmation_id"),
+                    resultSet.getString("facility_confirmation_id"),
                     createdAt.toInstant());
         }, value);
     }
@@ -158,7 +180,31 @@ public class IncidentAnalysisSnapshotStore {
             JsonNode modelResponse,
             JsonNode bffResponse,
             JsonNode agentResponse,
+            String incidentConfirmationId,
+            String facilityConfirmationId,
             Instant createdAt
     ) {
+        public boolean matchesConfirmations(
+                Map<ConfirmationRole, SubstanceConfirmation> confirmations) {
+            ConfirmationBindings expected = ConfirmationBindings.from(confirmations);
+            return Objects.equals(incidentConfirmationId,
+                    expected.incidentConfirmationId())
+                    && Objects.equals(facilityConfirmationId,
+                    expected.facilityConfirmationId());
+        }
+    }
+
+    private record ConfirmationBindings(
+            String incidentConfirmationId,
+            String facilityConfirmationId
+    ) {
+        private static ConfirmationBindings from(
+                Map<ConfirmationRole, SubstanceConfirmation> confirmations) {
+            SubstanceConfirmation incident = confirmations.get(ConfirmationRole.INCIDENT);
+            SubstanceConfirmation facility = confirmations.get(ConfirmationRole.FACILITY);
+            return new ConfirmationBindings(
+                    incident == null ? null : incident.confirmationId(),
+                    facility == null ? null : facility.confirmationId());
+        }
     }
 }

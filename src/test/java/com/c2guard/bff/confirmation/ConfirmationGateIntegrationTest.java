@@ -3,6 +3,7 @@ package com.c2guard.bff.confirmation;
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.integration.model.ModelApiResponse;
 import com.c2guard.bff.incident.IncidentAgentTestResponse;
+import com.c2guard.bff.incident.IncidentAnalysisSnapshotStore;
 import com.c2guard.security.SignedSessionTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 
 import static com.c2guard.security.BffTestSession.responder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -43,6 +46,12 @@ class ConfirmationGateIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private ConfirmationStore confirmationStore;
+
+    @Autowired
+    private IncidentAnalysisSnapshotStore snapshotStore;
 
     @MockBean
     private ConfirmationIdGenerator idGenerator;
@@ -151,6 +160,75 @@ class ConfirmationGateIntegrationTest {
         assertEquals("CFM-GATE-MEMORY-INCIDENT", secondRequest.path("analysis")
                 .path("confirmed_incident_substance").path("confirmation_id").asText());
         assertFalse(secondRequest.path("analysis").has("confirmed_facility_substance"));
+    }
+
+    @Test
+    void doesNotReuseSnapshotCreatedBeforeANewConfirmation() throws Exception {
+        String incidentId = "INC-GATE-STALE-SNAPSHOT";
+        String firstRequestId = "REQ-GATE-STALE-FIRST";
+        String secondRequestId = "REQ-GATE-STALE-SECOND";
+        when(idGenerator.nextId()).thenReturn("CFM-GATE-STALE-INCIDENT");
+
+        ObjectNode firstAnalysis = modelResponse(firstRequestId, incidentId,
+                "ANL-GATE-STALE-FIRST");
+        ObjectNode firstAgent = IncidentAgentTestResponse.withAnalysis(objectMapper,
+                firstAnalysis, firstRequestId, incidentId, null);
+        ObjectNode secondAgent = IncidentAgentTestResponse.withoutAnalysis(objectMapper,
+                secondRequestId, incidentId, firstAgent.path("memory"));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(firstRequestId)))
+                .thenReturn(new ModelApiResponse(firstRequestId, firstAgent));
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(secondRequestId)))
+                .thenReturn(new ModelApiResponse(secondRequestId, secondAgent));
+
+        String analysisBody = analysisFixture(incidentId);
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", firstRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisBody))
+                .andExpect(status().isOk());
+        save(incidentId, "REQ-GATE-STALE-CONFIRM", incidentFixture());
+
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", secondRequestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisBody))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("MODEL_CONTRACT_VIOLATION"));
+    }
+
+    @Test
+    void rejectsAnAnalysisWhenConfirmationChangesDuringTheModelCall() throws Exception {
+        String incidentId = "INC-GATE-CONCURRENT-CORRECTION";
+        String requestId = "REQ-GATE-CONCURRENT-CORRECTION";
+        String analysisId = "ANL-GATE-CONCURRENT-CORRECTION";
+        when(idGenerator.nextId()).thenReturn("CFM-GATE-CONCURRENT-CORRECTION");
+        ObjectNode analysis = modelResponse(requestId, incidentId, analysisId);
+        ObjectNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper,
+                analysis, requestId, incidentId, null);
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenAnswer(ignored -> {
+                    confirmationStore.save(new ConfirmationSaveCommand(
+                            incidentId, ConfirmationRole.INCIDENT, "7681-52-9",
+                            "차아염소산나트륨", ConfirmationBasis.CONTAINER_LABEL,
+                            OffsetDateTime.parse("2026-01-15T14:25:00+09:00"),
+                            "responder-1", "fire-station-119",
+                            "REQ-GATE-CONCURRENT-CONFIRM"));
+                    return new ModelApiResponse(requestId, agent);
+                });
+
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisFixture(incidentId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("INCIDENT_REFERENCE_CONFLICT"))
+                .andExpect(jsonPath("$.error.retryable").value(true));
+
+        assertTrue(snapshotStore.find(analysisId).isEmpty());
     }
 
     private void save(String incidentId, String requestId, String body) throws Exception {

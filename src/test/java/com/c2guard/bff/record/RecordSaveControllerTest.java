@@ -1,6 +1,9 @@
 package com.c2guard.bff.record;
 
+import com.c2guard.bff.common.BffContractException;
 import com.c2guard.bff.confirmation.ConfirmationIdGenerator;
+import com.c2guard.bff.confirmation.ConfirmationStore;
+import com.c2guard.bff.confirmation.SubstanceConfirmation;
 import com.c2guard.bff.incident.IncidentAnalysisSnapshotStore;
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.security.BffRole;
@@ -51,6 +54,9 @@ class RecordSaveControllerTest {
     private IncidentAnalysisSnapshotStore analysisStore;
 
     @Autowired
+    private ConfirmationStore confirmationStore;
+
+    @Autowired
     private ResponseRecordStore recordStore;
 
     @Autowired
@@ -84,12 +90,12 @@ class RecordSaveControllerTest {
         String analysisId = "ANL-RECORD-CREATE";
         String incidentConfirmationId = "CNF-RECORD-CREATE-INCIDENT";
         String facilityConfirmationId = "CNF-RECORD-CREATE-FACILITY";
-        seedAnalysisWithConflict(incidentId, analysisId);
         when(confirmationIdGenerator.nextId()).thenReturn(
                 incidentConfirmationId, facilityConfirmationId);
         seedConfirmation(incidentId, "INCIDENT", "7681-52-9",
                 "차아염소산나트륨");
         seedConfirmation(incidentId, "FACILITY", "7647-01-0", "염산");
+        seedAnalysisWithConflict(incidentId, analysisId);
         when(recordIdGenerator.nextId()).thenReturn("REC-RECORD-CREATE");
 
         mockMvc.perform(post(path(incidentId))
@@ -148,6 +154,73 @@ class RecordSaveControllerTest {
     }
 
     @Test
+    void rejectsAConflictAnalysisAfterItsConfirmationWasCorrected() throws Exception {
+        String incidentId = "INC-RECORD-STALE-CONFIRMATION";
+        String analysisId = "ANL-RECORD-STALE-CONFIRMATION";
+        String oldIncidentId = "CNF-RECORD-STALE-INCIDENT-1";
+        String facilityId = "CNF-RECORD-STALE-FACILITY";
+        String correctedIncidentId = "CNF-RECORD-STALE-INCIDENT-2";
+        when(confirmationIdGenerator.nextId()).thenReturn(
+                oldIncidentId, facilityId, correctedIncidentId);
+        seedConfirmation(incidentId, "INCIDENT", "7681-52-9",
+                "차아염소산나트륨");
+        seedConfirmation(incidentId, "FACILITY", "7647-01-0", "염산");
+        seedAnalysisWithConflict(incidentId, analysisId);
+        seedConfirmation(incidentId, "INCIDENT", "7664-93-9", "황산");
+
+        mockMvc.perform(post(path(incidentId))
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-RECORD-STALE-CONFIRMATION")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestWithConfirmations(analysisId, List.of(
+                                correctedIncidentId, facilityId))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("INCIDENT_REFERENCE_CONFLICT"))
+                .andExpect(jsonPath("$.resetAllowed").value(false));
+
+        verifyNoInteractions(recordIdGenerator);
+    }
+
+    @Test
+    void transactionRechecksConfirmationHeadsBeforeInsertingARecord() throws Exception {
+        String incidentId = "INC-RECORD-HEAD-LOCK";
+        String oldIncidentId = "CNF-RECORD-HEAD-INCIDENT-1";
+        String facilityId = "CNF-RECORD-HEAD-FACILITY";
+        when(confirmationIdGenerator.nextId()).thenReturn(
+                oldIncidentId, facilityId, "CNF-RECORD-HEAD-INCIDENT-2");
+        seedConfirmation(incidentId, "INCIDENT", "7681-52-9",
+                "차아염소산나트륨");
+        seedConfirmation(incidentId, "FACILITY", "7647-01-0", "염산");
+        List<SubstanceConfirmation> stale = List.of(
+                confirmationStore.findById(oldIncidentId).orElseThrow(),
+                confirmationStore.findById(facilityId).orElseThrow());
+        seedConfirmation(incidentId, "INCIDENT", "7664-93-9", "황산");
+        String analysisId = "ANL-RECORD-HEAD-LOCK";
+        seedAnalysis(incidentId, analysisId);
+        RecordSaveRequest request = new RecordSaveRequest(
+                OffsetDateTime.parse("2026-07-31T14:20:00+09:00"),
+                List.of(message("MSG-HEAD-LOCK", 1, analysisId)),
+                List.of(analysisId), List.of(oldIncidentId, facilityId), outcome());
+        BffUserPrincipal principal = new BffUserPrincipal("responder-head-lock",
+                "fire-station-119", Set.of(BffRole.RESPONDER), Set.of(incidentId),
+                "SID-HEAD-LOCK", Instant.now().minusSeconds(10),
+                Instant.now().plusSeconds(3600));
+        when(recordIdGenerator.nextId()).thenReturn("REC-RECORD-HEAD-LOCK");
+
+        BffContractException error = assertThrows(BffContractException.class,
+                () -> recordStore.save(incidentId, request,
+                        fingerprint.calculate(incidentId, request, principal),
+                        "REQ-RECORD-HEAD-LOCK", principal,
+                        List.of(analysisStore.find(analysisId).orElseThrow()), stale,
+                        java.util.Optional.empty(), java.util.Optional.empty(),
+                        java.util.Optional.empty()));
+
+        assertEquals(409, error.getStatus());
+        assertEquals("INCIDENT_REFERENCE_CONFLICT", error.getCode());
+    }
+
+    @Test
     void exactRetryReturnsTheExistingRecordWithoutDuplicatingMessages() throws Exception {
         String incidentId = "INC-RECORD-IDEMPOTENT";
         String analysisId = "ANL-RECORD-IDEMPOTENT";
@@ -167,6 +240,20 @@ class RecordSaveControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.requestId")
                         .value("REQ-RECORD-IDEMPOTENT-2"))
+                .andExpect(jsonPath("$.recordId")
+                        .value("REC-RECORD-IDEMPOTENT"));
+
+        when(confirmationIdGenerator.nextId()).thenReturn(
+                "CNF-RECORD-IDEMPOTENT-LATER");
+        seedConfirmation(incidentId, "INCIDENT", "7681-52-9",
+                "차아염소산나트륨");
+        mockMvc.perform(post(path(incidentId))
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-RECORD-IDEMPOTENT-3")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.requestId")
+                        .value("REQ-RECORD-IDEMPOTENT-3"))
                 .andExpect(jsonPath("$.recordId")
                         .value("REC-RECORD-IDEMPOTENT"));
 
@@ -292,7 +379,8 @@ class RecordSaveControllerTest {
         result.putArray("hazardCodes").add("C").add("T");
         result.putArray("gasProducts").add("Cl2");
         analysisStore.save(incidentId, analysisId, "REQ-" + analysisId,
-                objectMapper.createObjectNode(), bff, objectMapper.createObjectNode());
+                objectMapper.createObjectNode(), bff, objectMapper.createObjectNode(),
+                confirmationStore.findActiveForIncident(incidentId));
     }
 
     private void seedConfirmation(String incidentId, String role, String casNumber,
