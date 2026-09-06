@@ -14,7 +14,8 @@ GitHub Actions `Backend CI`는 `develop`·`main` 대상 pull request와 두 브�
 
 현재 테스트에는 BFF Controller·사용자 인증·confirmation gate·AI client·agent memory CAS,
 movement 입력·sequence·fail-closed 상태와 OpenAPI/fixture SHA drift 검사가 포함됩니다. 실제
-Model API, 지도 API, 운영 DB에는 접속하지 않고 test fixture와 MockWebServer만 사용합니다.
+Model API, Speech API, 지도 API, 운영 DB에는 접속하지 않고 test fixture와
+MockWebServer만 사용합니다.
 
 `Docker image build and smoke` job은 Gradle job 성공 후 고정된 Java 17 base image로 multi-stage
 build를 실행하고 non-root UID, OCI revision, liveness `UP`, 외부 의존성 미구성 시 readiness

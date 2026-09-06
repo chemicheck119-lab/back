@@ -10,6 +10,8 @@
   `e24fa93d538229844af4377976ee5a180c881fb3`
 - connect timeout: 2초
 - 전체 model response timeout: 15초
+- Speech API schema: `chemicheck119-speech-api-v1`
+- Speech API connect/response timeout: 2초/45초
 - timeout 응답: HTTP 504, `MODEL_TIMEOUT`, `retryable=true`
 
 FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라우저·응답·로그에
@@ -25,6 +27,7 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 | 물질발견 | `POST /api/c2guard/v1/substances/discover` | Model API `/api/v1/substances/discover` | 200 |
 | 현장확인 | `POST /api/c2guard/v1/incidents/{incidentId}/confirmations` | BE 확인 저장소 | 201 |
 | 이동갱신 | `POST /api/c2guard/v1/incidents/{incidentId}/movement` | BE 위치·길찾기 provider | 200 |
+| 음성전사 | `POST /api/c2guard/v1/incidents/{incidentId}/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
 | 기록저장 | `POST /api/c2guard/v1/incidents/{incidentId}/record` | BE 영구 저장소 | 201 |
 
 기계 판독 계약은 `contracts/dashboard-bff-v1.openapi.json`입니다. 요청·응답 예시는
@@ -40,6 +43,7 @@ OpenAPI의 `ServiceSession`은 `CHEMICHECK119_SESSION` cookie를 사용합니다
 - 403: 인증은 됐지만 해당 incident 또는 기능에 권한이 없음
 - 모든 BFF 경로에서 FE 사용자 인증과 incident 접근권한을 검사
 - BE → AI 호출에만 `X-API-Key` 사용
+- BE → Speech 호출의 `X-API-Key`와 선택적 Cloud Run IAM token은 브라우저에 노출하지 않음
 - 인입·하위 호출·응답·구조화 로그가 같은 request ID 사용
 
 CORS는 인증이 아닙니다. 운영 origin allowlist는 환경별 설정으로 관리하며 개발 origin은
@@ -72,6 +76,11 @@ CORS는 인증이 아닙니다. 운영 origin allowlist는 환경별 설정으�
 | 500 | `INTERNAL_ERROR` | false | BE 내부 또는 출력 안전검증 실패 |
 | 503 | `MODEL_SERVICE_UNAVAILABLE` | true | AI readiness·artifact·일시 장애 |
 | 504 | `MODEL_TIMEOUT` | true | AI-backed 요청이 전체 15초 timeout 초과 |
+
+음성 경로는 추가로 413 `AUDIO_SIZE_OUT_OF_RANGE`, 415 unsupported media type,
+422 `SPEECH_CONTRACT_VIOLATION`, 429 `SPEECH_BUSY`, 503
+`SPEECH_SERVICE_UNAVAILABLE`, 504 `SPEECH_TIMEOUT`을 사용합니다. 상세 경계는
+`docs/SPEECH_TRANSCRIPTION_BFF.md`를 기준으로 합니다.
 
 `MODEL_TIMEOUT`은 `incidents/analyze`와 `substances/discover`에 적용합니다. confirmation,
 movement, record는 각각 저장소·route provider의 명시적 오류 정책을 사용하며 AI timeout을

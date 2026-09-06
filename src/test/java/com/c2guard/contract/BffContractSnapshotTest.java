@@ -25,6 +25,8 @@ class BffContractSnapshotTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Path BFF_CONTRACT = Path.of("contracts/dashboard-bff-v1.openapi.json");
     private static final Path MODEL_CONTRACT = Path.of("contracts/upstream/model-api-v1.openapi.json");
+    private static final Path SPEECH_CONTRACT =
+            Path.of("contracts/upstream/speech-api-v1.openapi.json");
     private static final Path INTEGRATION_CONTRACT =
             Path.of("contracts/upstream/model-api-integration-v1.json");
     private static final Path INCIDENT_REPLAY_CONTRACT =
@@ -44,7 +46,8 @@ class BffContractSnapshotTest {
                 "/api/c2guard/v1/substances/discover", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/confirmations", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/movement", "post",
-                "/api/c2guard/v1/incidents/{incidentId}/record", "post");
+                "/api/c2guard/v1/incidents/{incidentId}/record", "post",
+                "/api/c2guard/v1/incidents/{incidentId}/transcriptions", "post");
         assertEquals(expected.keySet(), fieldNames(paths));
 
         expected.forEach((path, method) -> {
@@ -64,10 +67,55 @@ class BffContractSnapshotTest {
         assertEquals(15, contract.path("x-model-api-response-timeout-seconds").asInt());
         assertTimeoutResponse(contract, "/api/c2guard/v1/incidents/analyze");
         assertTimeoutResponse(contract, "/api/c2guard/v1/substances/discover");
+        assertSpeechTimeoutResponse(contract,
+                "/api/c2guard/v1/incidents/{incidentId}/transcriptions");
 
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/confirmations", "504"));
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/movement", "504"));
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/record", "504"));
+    }
+
+    @Test
+    void speechContractPreservesUncertaintyAndForbidsDirectSafetyDecisions()
+            throws IOException {
+        JsonNode bff = read(BFF_CONTRACT);
+        JsonNode operation = bff.path("paths")
+                .path("/api/c2guard/v1/incidents/{incidentId}/transcriptions")
+                .path("post");
+        assertFalse(operation.path("x-speech-api-direct-browser-call-allowed")
+                .asBoolean(true));
+        assertFalse(operation.path("x-audio-retained").asBoolean(true));
+        assertTrue(hasResponse(bff,
+                "/api/c2guard/v1/incidents/{incidentId}/transcriptions", "413"));
+        assertTrue(hasResponse(bff,
+                "/api/c2guard/v1/incidents/{incidentId}/transcriptions", "429"));
+
+        JsonNode response = bff.path("components").path("schemas")
+                .path("DashboardSpeechTranscriptionResponse");
+        assertTrue(response.path("properties").path("requiresResponderReview")
+                .path("const").asBoolean());
+        JsonNode safety = bff.path("components").path("schemas")
+                .path("DashboardSpeechSafetyBoundary").path("properties");
+        assertFalse(safety.path("chemicalIdentificationPerformed").path("const")
+                .asBoolean(true));
+        assertFalse(safety.path("casConfirmationPerformed").path("const")
+                .asBoolean(true));
+        assertFalse(safety.path("riskAssessmentPerformed").path("const")
+                .asBoolean(true));
+
+        JsonNode upstream = read(SPEECH_CONTRACT);
+        JsonNode transcription = upstream.path("paths")
+                .path("/api/v1/transcriptions").path("post");
+        assertFalse(transcription.isMissingNode());
+        assertTrue(transcription.path("security").toString().contains("APIKeyHeader"));
+        JsonNode upstreamSafety = upstream.path("components").path("schemas")
+                .path("SafetyBoundaryResponse").path("properties");
+        assertFalse(upstreamSafety.path("chemical_identification_performed")
+                .path("const").asBoolean(true));
+        assertFalse(upstreamSafety.path("cas_confirmation_performed")
+                .path("const").asBoolean(true));
+        assertFalse(upstreamSafety.path("risk_assessment_performed")
+                .path("const").asBoolean(true));
     }
 
     @Test
@@ -305,6 +353,16 @@ class BffContractSnapshotTest {
         assertTrue(response.path("description").asText().contains("MODEL_TIMEOUT"), path);
         assertEquals("#/components/schemas/DashboardErrorResponse",
                 response.path("content").path("application/json").path("schema").path("$ref").asText());
+    }
+
+    private static void assertSpeechTimeoutResponse(JsonNode contract, String path) {
+        JsonNode response = contract.path("paths").path(path).path("post")
+                .path("responses").path("504");
+        assertFalse(response.isMissingNode(), path);
+        assertTrue(response.path("description").asText().contains("SPEECH_TIMEOUT"), path);
+        assertEquals("#/components/schemas/DashboardErrorResponse",
+                response.path("content").path("application/json").path("schema")
+                        .path("$ref").asText());
     }
 
     private static boolean hasResponse(JsonNode contract, String path, String status) {
