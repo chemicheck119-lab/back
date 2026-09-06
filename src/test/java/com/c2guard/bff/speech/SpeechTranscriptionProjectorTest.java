@@ -74,6 +74,15 @@ class SpeechTranscriptionProjectorTest {
         assertViolation(timing);
     }
 
+    @Test
+    void projectsNullIncidentIdForAuthenticatedPreIncidentIntake() throws IOException {
+        JsonNode projected = projector.project(fixture(), "REQ-SPEECH-0001", null);
+
+        assertTrue(projected.has("incidentId"));
+        assertTrue(projected.path("incidentId").isNull());
+        assertTrue(projected.path("requiresResponderReview").asBoolean());
+    }
+
     private void assertViolation(JsonNode source) {
         BffContractException error = assertThrows(BffContractException.class,
                 () -> projector.project(source, "REQ-SPEECH-0001", "INC-SPEECH-0001"));

@@ -15,8 +15,10 @@
 
 ```text
 Pad/FE
-  └─ signed HttpOnly session + incident scope
-      └─ BE POST /api/c2guard/v1/incidents/{incidentId}/transcriptions
+  └─ signed HttpOnly session
+      ├─ 신고 접수 전: BE POST /api/c2guard/v1/transcriptions
+      └─ 사고 생성 후 + incident scope
+          └─ BE POST /api/c2guard/v1/incidents/{incidentId}/transcriptions
           ├─ media type·16 MiB hard limit·RIFF/WAVE header 검증
           ├─ 동일 X-Request-Id 전달
           └─ private Speech API POST /api/v1/transcriptions
@@ -28,6 +30,11 @@ BE는 원본 음성과 전사문을 DB·파일·로그에 저장하지 않습니
 임시 파일을 제거하며 `audio_retained=false`를 반환해야 합니다. 이 값이 달라지거나 알려지지
 않은 응답 필드, schema/request ID drift, hotword 사용, CAS·위험 판단 수행 표시가 있으면
 BE는 422로 fail closed합니다.
+
+접수 전 경로는 유효한 로그인 세션만 검사하고 응답 `incidentId=null`을 반환합니다. FE는
+검토한 전사문을 별도의 사고 분석 요청에 넣고, 사고 ID는 BE 분석 경로가 발급하게 해야 합니다.
+접수 전 임의 ID를 만들어 incident scope 검증을 우회하지 않습니다. 사고 생성 후 경로는 기존처럼
+해당 incident scope까지 검사합니다.
 
 ## 요청 제한
 

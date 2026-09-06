@@ -133,11 +133,12 @@ FE 요청부터 Model API 호출까지 같은 request ID를 사용합니다. 로
 |---|---|---|
 | `GET` | `/api/c2guard/v1/session` | 인증 사용자·소방서·역할·사고 scope 조회 |
 | `POST` | `/api/c2guard/v1/logout` | 서명 세션 만료 |
+| `POST` | `/api/c2guard/v1/transcriptions` | 사고 생성 전 신고 음성을 인증·제한 후 전사 |
 | `POST` | `/api/c2guard/v1/incidents/analyze` | 신고·현장 context를 AI Model API에 전달하고 화면 응답 생성 |
 | `POST` | `/api/c2guard/v1/substances/discover` | 관찰 특징·물질명 기반 후보 검색 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/confirmations` | 사고·시설물질 현장 확인과 revision 저장 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/movement` | GPS 검증과 도로 경로·ETA 조회 |
-| `POST` | `/api/c2guard/v1/incidents/{incidentId}/transcriptions` | 인증·용량 제한 후 Speech API 전사 결과를 검증해 전달 |
+| `POST` | `/api/c2guard/v1/incidents/{incidentId}/transcriptions` | 생성된 사고의 후속 음성을 scope 검증 후 전사 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/record` | 분석·확인·이동 정보를 결합한 대응 기록 저장 |
 | `GET` | `/api/c2guard/v1/intake/replay-stream/{scenarioId}` | 공개 합성 지령 SSE 시연 |
 

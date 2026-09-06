@@ -112,6 +112,7 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
             case "/api/c2guard/v1/substances/discover" -> "substances.discover";
             case "/api/c2guard/v1/session" -> "session.get";
             case "/api/c2guard/v1/logout" -> "session.logout";
+            case "/api/c2guard/v1/transcriptions" -> "transcriptions.create";
             case "/api/incident-check" -> "legacy.incident-check";
             case "/api/compatibility/check" -> "legacy.compatibility-check";
             case "/api/facilities/search" -> "legacy.facilities-search";

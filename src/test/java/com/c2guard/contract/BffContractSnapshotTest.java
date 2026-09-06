@@ -42,6 +42,7 @@ class BffContractSnapshotTest {
         Map<String, String> expected = Map.of(
                 "/api/c2guard/v1/session", "get",
                 "/api/c2guard/v1/logout", "post",
+                "/api/c2guard/v1/transcriptions", "post",
                 "/api/c2guard/v1/incidents/analyze", "post",
                 "/api/c2guard/v1/substances/discover", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/confirmations", "post",
@@ -69,6 +70,7 @@ class BffContractSnapshotTest {
         assertTimeoutResponse(contract, "/api/c2guard/v1/substances/discover");
         assertSpeechTimeoutResponse(contract,
                 "/api/c2guard/v1/incidents/{incidentId}/transcriptions");
+        assertSpeechTimeoutResponse(contract, "/api/c2guard/v1/transcriptions");
 
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/confirmations", "504"));
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/movement", "504"));
@@ -92,6 +94,8 @@ class BffContractSnapshotTest {
 
         JsonNode response = bff.path("components").path("schemas")
                 .path("DashboardSpeechTranscriptionResponse");
+        assertTrue(response.path("properties").path("incidentId")
+                .path("anyOf").toString().contains("null"));
         assertTrue(response.path("properties").path("requiresResponderReview")
                 .path("const").asBoolean());
         JsonNode safety = bff.path("components").path("schemas")
