@@ -6,6 +6,7 @@
 - `incident-intake-replay-v1.openapi.json`: 공개 합성 지령 SSE·IncidentEnvelope 계약
 - `synthetic-demo-logs-v1.openapi.json`: 전국 소방서별 합성 분석·대응 로그 조회 계약
 - `upstream/model-api-v1.openapi.json`: `chemicheck119/llm` 모델 API 읽기 전용 스냅샷
+- `upstream/speech-api-v1.openapi.json`: `chemicheck119-lab/speech-service` Speech API 읽기 전용 스냅샷
 - `upstream/model-api-integration-v1.json`: 저장소 경계·agent memory 소유권 계약
 - `examples/bff/*.json`: FE·BE consumer fixture
 - `examples/model/*.json`: BE→AI 요청 fixture
@@ -24,6 +25,9 @@ merge commit `32736a680d445acea158da42efebd87651ce11b2`입니다. BE 계약은 �
 - FE 사고분석 경로는 유지하되 내부 기본 호출은 AI `/api/v1/agents/incidents/step`을 사용합니다.
 - agent memory는 BE가 소유하고 `revision`, `memory_sha256`, `parent_memory_sha256`으로
   compare-and-swap합니다. 현재 process-local adapter의 영속 DB 교체는 #9 범위입니다.
+- 음성 파일은 인증된 incident scope의 BFF를 통해서만 Speech API로 전달합니다. BFF와
+  Speech API 모두 원본 음성을 저장하지 않으며 전사 결과는 사용자 검토 전 CAS 확정이나
+  위험 판단으로 사용할 수 없습니다.
 
 계약을 갱신할 때는 upstream commit을 먼저 고정하고 fixture와 SHA-256을 함께 갱신한 뒤
 `BffContractSnapshotTest`를 실행합니다. BE 구현 편의를 위해 안전 필드나 오류 상태를

@@ -2,6 +2,8 @@ package com.c2guard.bff.common;
 
 import com.c2guard.integration.model.ModelApiErrorKind;
 import com.c2guard.integration.model.ModelApiException;
+import com.c2guard.integration.speech.SpeechApiErrorKind;
+import com.c2guard.integration.speech.SpeechApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -60,6 +62,32 @@ public class BffExceptionHandler {
         return response(HttpStatus.SERVICE_UNAVAILABLE, request,
                 "MODEL_SERVICE_UNAVAILABLE",
                 "모델 서비스가 준비되지 않았습니다. 저장된 현장 정보는 유지됩니다.",
+                retryable);
+    }
+
+    @ExceptionHandler(SpeechApiException.class)
+    ResponseEntity<DashboardErrorResponse> speechFailure(SpeechApiException error,
+                                                          HttpServletRequest request) {
+        if (error.getKind() == SpeechApiErrorKind.TIMEOUT) {
+            return response(HttpStatus.GATEWAY_TIMEOUT, request, "SPEECH_TIMEOUT",
+                    "음성 전사 서비스가 제한 시간 안에 응답하지 않았습니다. 다시 시도하세요.",
+                    true);
+        }
+        if (error.getKind() == SpeechApiErrorKind.BUSY) {
+            return response(HttpStatus.TOO_MANY_REQUESTS, request, "SPEECH_BUSY",
+                    "음성 전사 요청이 많습니다. 잠시 후 다시 시도하세요.", true);
+        }
+        if (error.getKind() == SpeechApiErrorKind.CONTRACT) {
+            return response(HttpStatus.UNPROCESSABLE_ENTITY, request,
+                    "SPEECH_CONTRACT_VIOLATION",
+                    "음성 전사 서비스 계약이 현재 BE 계약과 일치하지 않습니다.", false);
+        }
+        boolean retryable = error.getKind() == SpeechApiErrorKind.NETWORK
+                || (error.getKind() == SpeechApiErrorKind.UPSTREAM
+                && error.isRetryable());
+        return response(HttpStatus.SERVICE_UNAVAILABLE, request,
+                "SPEECH_SERVICE_UNAVAILABLE",
+                "음성 전사 서비스를 사용할 수 없습니다. 기존 입력은 유지해주세요.",
                 retryable);
     }
 

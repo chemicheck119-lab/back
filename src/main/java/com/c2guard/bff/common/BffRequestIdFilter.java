@@ -31,7 +31,7 @@ public class BffRequestIdFilter extends OncePerRequestFilter {
 
     private static final Pattern VALID_REQUEST_ID = Pattern.compile("^[A-Za-z0-9_.:-]{1,128}$");
     private static final Pattern INCIDENT_CHILD_PATH = Pattern.compile(
-            "^/api/c2guard/v1/incidents/[^/]+/(confirmations|movement|record)$");
+            "^/api/c2guard/v1/incidents/[^/]+/(confirmations|movement|record|transcriptions)$");
     private static final Pattern LEGACY_FACILITY_SUBSTANCES = Pattern.compile(
             "^/api/facilities/[^/]+/substances$");
     private static final Pattern INCIDENT_REPLAY_STREAM = Pattern.compile(

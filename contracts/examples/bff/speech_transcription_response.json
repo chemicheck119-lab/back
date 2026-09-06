@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "requestId": "REQ-SPEECH-0001",
+  "incidentId": "INC-SPEECH-0001",
+  "status": "TRANSCRIBED",
+  "abstained": false,
+  "requiresResponderReview": true,
+  "transcript": {
+    "text": "아세톤 누출 의심",
+    "segments": [
+      {
+        "startSeconds": 0.0,
+        "endSeconds": 0.1,
+        "text": "아세톤 누출 의심",
+        "qualitySignals": {
+          "avgLogProbability": -0.42,
+          "noSpeechProbability": 0.08,
+          "compressionRatio": 1.15,
+          "calibratedCorrectnessProbability": false
+        }
+      }
+    ],
+    "audioSeconds": 0.1,
+    "voicedSeconds": 0.1
+  },
+  "input": {
+    "mediaType": "audio/wav",
+    "channels": 1,
+    "sampleWidthBits": 16,
+    "sampleRateHz": 16000,
+    "durationSeconds": 0.1,
+    "audioRetained": false
+  },
+  "runtime": {
+    "serviceVersion": "0.1.0",
+    "model": "faster-whisper-small",
+    "actualDevice": "cpu",
+    "actualComputeType": "int8",
+    "processingSeconds": 0.02,
+    "realTimeFactor": 0.2,
+    "hotwordsUsed": false
+  },
+  "safetyBoundary": {
+    "uncertaintyPreserved": true,
+    "qualitySignalsAreCalibratedProbabilities": false,
+    "chemicalIdentificationPerformed": false,
+    "casConfirmationPerformed": false,
+    "riskAssessmentPerformed": false,
+    "decisionSupportOnly": true
+  }
+}

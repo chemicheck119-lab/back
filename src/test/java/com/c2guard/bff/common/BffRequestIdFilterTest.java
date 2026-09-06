@@ -70,6 +70,9 @@ class BffRequestIdFilterTest {
                 BffRequestIdFilter.routeName("/api/c2guard/v1/incidents/INC-1/movement"));
         assertEquals("incidents.record",
                 BffRequestIdFilter.routeName("/api/c2guard/v1/incidents/INC-1/record"));
+        assertEquals("incidents.transcriptions",
+                BffRequestIdFilter.routeName(
+                        "/api/c2guard/v1/incidents/INC-SECRET/transcriptions"));
         assertEquals("session.get",
                 BffRequestIdFilter.routeName("/api/c2guard/v1/session"));
         assertEquals("session.logout",

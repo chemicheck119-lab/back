@@ -3863,6 +3863,276 @@
         ],
         "title": "DashboardSessionContextResponse",
         "type": "object"
+      },
+      "DashboardSpeechQualitySignals": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "avgLogProbability": {
+            "type": "number"
+          },
+          "noSpeechProbability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "compressionRatio": {
+            "type": "number",
+            "minimum": 0
+          },
+          "calibratedCorrectnessProbability": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "avgLogProbability",
+          "noSpeechProbability",
+          "compressionRatio",
+          "calibratedCorrectnessProbability"
+        ]
+      },
+      "DashboardSpeechSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "startSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "endSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "qualitySignals": {
+            "$ref": "#/components/schemas/DashboardSpeechQualitySignals"
+          }
+        },
+        "required": [
+          "startSeconds",
+          "endSeconds",
+          "text",
+          "qualitySignals"
+        ]
+      },
+      "DashboardSpeechTranscript": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "segments": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/DashboardSpeechSegment"
+            }
+          },
+          "audioSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "voicedSeconds": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "text",
+          "segments",
+          "audioSeconds",
+          "voicedSeconds"
+        ]
+      },
+      "DashboardSpeechInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mediaType": {
+            "type": "string",
+            "const": "audio/wav"
+          },
+          "channels": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "sampleWidthBits": {
+            "type": "integer",
+            "const": 16
+          },
+          "sampleRateHz": {
+            "type": "integer",
+            "minimum": 8000,
+            "maximum": 48000
+          },
+          "durationSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 60
+          },
+          "audioRetained": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "mediaType",
+          "channels",
+          "sampleWidthBits",
+          "sampleRateHz",
+          "durationSeconds",
+          "audioRetained"
+        ]
+      },
+      "DashboardSpeechRuntime": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "serviceVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "actualDevice": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "actualComputeType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "processingSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "realTimeFactor": {
+            "type": "number",
+            "minimum": 0
+          },
+          "hotwordsUsed": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "serviceVersion",
+          "model",
+          "actualDevice",
+          "actualComputeType",
+          "processingSeconds",
+          "realTimeFactor",
+          "hotwordsUsed"
+        ]
+      },
+      "DashboardSpeechSafetyBoundary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uncertaintyPreserved": {
+            "type": "boolean",
+            "const": true
+          },
+          "qualitySignalsAreCalibratedProbabilities": {
+            "type": "boolean",
+            "const": false
+          },
+          "chemicalIdentificationPerformed": {
+            "type": "boolean",
+            "const": false
+          },
+          "casConfirmationPerformed": {
+            "type": "boolean",
+            "const": false
+          },
+          "riskAssessmentPerformed": {
+            "type": "boolean",
+            "const": false
+          },
+          "decisionSupportOnly": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "uncertaintyPreserved",
+          "qualitySignalsAreCalibratedProbabilities",
+          "chemicalIdentificationPerformed",
+          "casConfirmationPerformed",
+          "riskAssessmentPerformed",
+          "decisionSupportOnly"
+        ]
+      },
+      "DashboardSpeechTranscriptionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "type": "string",
+            "const": "chemicheck119-dashboard-bff-v1"
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "incidentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "TRANSCRIBED",
+              "ABSTAINED_NO_TRANSCRIPT"
+            ]
+          },
+          "abstained": {
+            "type": "boolean"
+          },
+          "requiresResponderReview": {
+            "type": "boolean",
+            "const": true
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/DashboardSpeechTranscript"
+          },
+          "input": {
+            "$ref": "#/components/schemas/DashboardSpeechInput"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/DashboardSpeechRuntime"
+          },
+          "safetyBoundary": {
+            "$ref": "#/components/schemas/DashboardSpeechSafetyBoundary"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "incidentId",
+          "status",
+          "abstained",
+          "requiresResponderReview",
+          "transcript",
+          "input",
+          "runtime",
+          "safetyBoundary"
+        ]
       }
     },
     "securitySchemes": {
@@ -4560,6 +4830,162 @@
         "x-implementation-owner": "BE_Repository",
         "x-model-api-direct-browser-call-allowed": false
       }
+    },
+    "/api/c2guard/v1/incidents/{incidentId}/transcriptions": {
+      "post": {
+        "operationId": "transcribe_incident_audio_api_c2guard_v1_incidents_incidentId_transcriptions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incidentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/x-wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/wave": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bounded transcription requiring responder review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSpeechTranscriptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Audio read failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden incident scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "AUDIO_SIZE_OUT_OF_RANGE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported WAV media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INVALID_WAV or SPEECH_CONTRACT_VIOLATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "SPEECH_BUSY, retryable=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SPEECH_SERVICE_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "SPEECH_TIMEOUT, retryable=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ServiceSession": []
+          }
+        ],
+        "summary": "사고 범위 인증 후 제한된 WAV 음성을 전사",
+        "tags": [
+          "dashboard-bff"
+        ],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false,
+        "x-speech-api-direct-browser-call-allowed": false,
+        "x-audio-retained": false,
+        "x-safety-boundary": "TRANSCRIPTION_ONLY_NO_CHEMICAL_IDENTIFICATION_NO_CAS_CONFIRMATION_NO_RISK_ASSESSMENT"
+      }
     }
   },
   "servers": [
@@ -4577,5 +5003,10 @@
   "x-implementation-status": "CONTRACT_ONLY_NOT_IMPLEMENTED_IN_LLM",
   "x-model-api-connect-timeout-seconds": 2,
   "x-model-api-response-timeout-seconds": 15,
-  "x-model-api-schema-version": "chemiguard119-api-v1"
+  "x-model-api-schema-version": "chemiguard119-api-v1",
+  "x-speech-api-contract-version": "chemicheck119-speech-api-v1",
+  "x-speech-api-connect-timeout-seconds": 2,
+  "x-speech-api-response-timeout-seconds": 45,
+  "x-speech-api-max-audio-bytes": 16777216,
+  "x-speech-api-max-duration-seconds": 60
 }
