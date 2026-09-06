@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets;
 
 @Validated
 @RestController
-@RequestMapping("/api/c2guard/v1/incidents/{incidentId}/transcriptions")
+@RequestMapping("/api/c2guard/v1")
 public class SpeechTranscriptionController {
 
     private final SpeechTranscriptionService service;
@@ -31,11 +31,23 @@ public class SpeechTranscriptionController {
         this.properties = properties;
     }
 
-    @PostMapping(consumes = {"audio/wav", "audio/x-wav", "audio/wave"},
+    @PostMapping(value = "/transcriptions",
+            consumes = {"audio/wav", "audio/x-wav", "audio/wave"},
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public JsonNode transcribe(
+    public JsonNode transcribeBeforeIncident(HttpServletRequest request) {
+        return transcribe(null, request);
+    }
+
+    @PostMapping(value = "/incidents/{incidentId}/transcriptions",
+            consumes = {"audio/wav", "audio/x-wav", "audio/wave"},
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public JsonNode transcribeForIncident(
             @PathVariable @Size(min = 1, max = 128) String incidentId,
             HttpServletRequest request) {
+        return transcribe(incidentId, request);
+    }
+
+    private JsonNode transcribe(String incidentId, HttpServletRequest request) {
         byte[] audio = readBounded(request, properties.getMaxAudioBytes());
         if (!hasRiffWaveHeader(audio)) {
             throw new BffContractException(422, "INVALID_WAV",

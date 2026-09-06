@@ -143,7 +143,11 @@ class SpeechTranscriptionProjector {
         ObjectNode target = JsonNodeFactory.instance.objectNode();
         target.put("schemaVersion", BFF_SCHEMA);
         target.put("requestId", requestId);
-        target.put("incidentId", incidentId);
+        if (incidentId == null) {
+            target.putNull("incidentId");
+        } else {
+            target.put("incidentId", incidentId);
+        }
         target.put("status", status);
         target.put("abstained", abstained);
         target.put("requiresResponderReview", true);

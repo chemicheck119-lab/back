@@ -39,6 +39,7 @@ class SpeechTranscriptionControllerTest {
     private static final String REQUEST_ID = "REQ-SPEECH-0001";
     private static final String PATH = "/api/c2guard/v1/incidents/" + INCIDENT_ID
             + "/transcriptions";
+    private static final String PRE_INCIDENT_PATH = "/api/c2guard/v1/transcriptions";
 
     @Autowired
     private MockMvc mockMvc;
@@ -94,6 +95,32 @@ class SpeechTranscriptionControllerTest {
                         .cookie(responder(tokenService, "INC-DIFFERENT"))
                         .contentType("audio/wav").content(wav(44)))
                 .andExpect(status().isForbidden());
+
+        verifyNoInteractions(speechApiClient);
+    }
+
+    @Test
+    void authenticatedSessionCanTranscribeBeforeIncidentCreationWithoutInventingScope()
+            throws Exception {
+        byte[] audio = wav(44);
+        when(speechApiClient.transcribe(argThat(value -> Arrays.equals(value, audio)),
+                eq(MediaType.parseMediaType("audio/wav")), eq(REQUEST_ID)))
+                .thenReturn(fixture());
+
+        mockMvc.perform(post(PRE_INCIDENT_PATH)
+                        .cookie(responder(tokenService))
+                        .header("X-Request-Id", REQUEST_ID)
+                        .contentType("audio/wav").content(audio))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidentId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.requiresResponderReview").value(true));
+    }
+
+    @Test
+    void preIncidentTranscriptionStillRequiresAuthentication() throws Exception {
+        mockMvc.perform(post(PRE_INCIDENT_PATH)
+                        .contentType("audio/wav").content(wav(44)))
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(speechApiClient);
     }

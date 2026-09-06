@@ -4090,9 +4090,17 @@
             "maxLength": 128
           },
           "incidentId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "신고 접수 전 전사는 null이며 사고 생성 후 경로에서만 incident ID를 반환"
           },
           "status": {
             "type": "string",
@@ -4985,6 +4993,151 @@
         "x-speech-api-direct-browser-call-allowed": false,
         "x-audio-retained": false,
         "x-safety-boundary": "TRANSCRIPTION_ONLY_NO_CHEMICAL_IDENTIFICATION_NO_CAS_CONFIRMATION_NO_RISK_ASSESSMENT"
+      }
+    },
+    "/api/c2guard/v1/transcriptions": {
+      "post": {
+        "operationId": "transcribe_pre_incident_audio_api_c2guard_v1_transcriptions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/x-wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/wave": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bounded transcription requiring responder review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSpeechTranscriptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Audio read failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden incident scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "AUDIO_SIZE_OUT_OF_RANGE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported WAV media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "INVALID_WAV or SPEECH_CONTRACT_VIOLATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "SPEECH_BUSY, retryable=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SPEECH_SERVICE_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "SPEECH_TIMEOUT, retryable=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ServiceSession": []
+          }
+        ],
+        "summary": "인증 후 신고 접수 전 제한된 WAV 음성을 전사",
+        "tags": [
+          "dashboard-bff"
+        ],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false,
+        "x-speech-api-direct-browser-call-allowed": false,
+        "x-audio-retained": false,
+        "x-safety-boundary": "TRANSCRIPTION_ONLY_NO_CHEMICAL_IDENTIFICATION_NO_CAS_CONFIRMATION_NO_RISK_ASSESSMENT",
+        "x-intake-phase": "PRE_INCIDENT_AUTHENTICATED"
       }
     }
   },

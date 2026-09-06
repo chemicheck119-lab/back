@@ -23,11 +23,12 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 |---|---|---|---|
 | 세션확인 | `GET /api/c2guard/v1/session` | 서명 session cookie | 200 |
 | 로그아웃 | `POST /api/c2guard/v1/logout` | session cookie 만료 | 204 |
+| 접수 전 음성전사 | `POST /api/c2guard/v1/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
 | 사고분석 | `POST /api/c2guard/v1/incidents/analyze` | Model API `/api/v1/incidents/analyze` | 200 |
 | 물질발견 | `POST /api/c2guard/v1/substances/discover` | Model API `/api/v1/substances/discover` | 200 |
 | 현장확인 | `POST /api/c2guard/v1/incidents/{incidentId}/confirmations` | BE 확인 저장소 | 201 |
 | 이동갱신 | `POST /api/c2guard/v1/incidents/{incidentId}/movement` | BE 위치·길찾기 provider | 200 |
-| 음성전사 | `POST /api/c2guard/v1/incidents/{incidentId}/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
+| 사고 후 음성전사 | `POST /api/c2guard/v1/incidents/{incidentId}/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
 | 기록저장 | `POST /api/c2guard/v1/incidents/{incidentId}/record` | BE 영구 저장소 | 201 |
 
 기계 판독 계약은 `contracts/dashboard-bff-v1.openapi.json`입니다. 요청·응답 예시는

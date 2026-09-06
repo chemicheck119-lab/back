@@ -77,6 +77,8 @@ class BffRequestIdFilterTest {
                 BffRequestIdFilter.routeName("/api/c2guard/v1/session"));
         assertEquals("session.logout",
                 BffRequestIdFilter.routeName("/api/c2guard/v1/logout"));
+        assertEquals("transcriptions.create",
+                BffRequestIdFilter.routeName("/api/c2guard/v1/transcriptions"));
         assertEquals("intake.replay-stream",
                 BffRequestIdFilter.routeName(
                         "/api/c2guard/v1/intake/replay-stream/CONTEST-LIVE-CHEMICAL-001"));
