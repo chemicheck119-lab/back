@@ -37,6 +37,11 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Validate deployment contract
+        run: |
+          bash -n scripts/deployment/*.sh
+          scripts/deployment/test_deploy_contract.sh
+
       - name: Run unit, integration, and contract tests
         run: ./gradlew clean test --no-daemon --console=plain
 
