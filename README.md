@@ -183,7 +183,7 @@ curl http://127.0.0.1:8080/actuator/info
 - BFF Controller와 요청·응답 projection
 - 서명 세션, 역할·incident scope, CORS와 401·403
 - confirmation 멱등성·정정 revision·CAS 검증
-- confirmation 정정→stale 분석 차단→exact retry [통합 상태 전이 보고서](docs/BACKEND_SAFETY_EVALUATION.md)
+- 새 충돌 근거 확인→append-only 정정→stale 분석 차단→exact retry [통합 상태 전이 보고서](docs/BACKEND_SAFETY_EVALUATION.md)
 - AI client timeout·재시도·schema 오류
 - agent memory와 response snapshot
 - movement 입력·sequence·fail-closed 상태·Naver Directions adapter

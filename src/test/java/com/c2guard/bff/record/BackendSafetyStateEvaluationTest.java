@@ -45,7 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 class BackendSafetyStateEvaluationTest {
 
     private static final Path SCENARIO_PATH = Path.of(
-            "src/test/resources/evaluation/backend_safety_state_v1.json");
+            "src/test/resources/evaluation/backend_safety_state_v2.json");
     private static final Path SOURCE_PATH = Path.of(
             "src/test/java/com/c2guard/bff/record/BackendSafetyStateEvaluationTest.java");
     private static final Path MIGRATION_PATH = Path.of(
@@ -109,44 +109,75 @@ class BackendSafetyStateEvaluationTest {
         String incidentId = text(input, "incident_id");
         String oldIncidentId = text(input, "old_incident_confirmation_id");
         String facilityId = text(input, "facility_confirmation_id");
-        String correctedIncidentId = text(input, "corrected_incident_confirmation_id");
+        String newEvidenceIncidentId = text(input,
+                "new_evidence_incident_confirmation_id");
         String oldAnalysisId = text(input, "old_analysis_id");
         String freshAnalysisId = text(input, "fresh_analysis_id");
         String expectedRecordId = text(input, "record_id");
+        JsonNode initialEvidence = input.path("initial_evidence");
+        JsonNode newConflictingEvidence = input.path("new_conflicting_evidence");
         when(confirmationIdGenerator.nextId()).thenReturn(
-                oldIncidentId, facilityId, correctedIncidentId);
+                oldIncidentId, facilityId, newEvidenceIncidentId);
         when(recordIdGenerator.nextId()).thenReturn(expectedRecordId);
 
         saveConfirmation(incidentId, "REQ-BACKEND-STATE-INCIDENT-1",
-                "INCIDENT", "7681-52-9", "차아염소산나트륨");
+                "INCIDENT", text(initialEvidence, "cas_number"),
+                text(initialEvidence, "display_name"),
+                text(initialEvidence, "confirmation_basis"),
+                text(initialEvidence, "observed_at"));
         saveConfirmation(incidentId, "REQ-BACKEND-STATE-INCIDENT-DUPLICATE",
-                "INCIDENT", "7681-52-9", "차아염소산나트륨");
+                "INCIDENT", text(initialEvidence, "cas_number"),
+                text(initialEvidence, "display_name"),
+                text(initialEvidence, "confirmation_basis"),
+                text(initialEvidence, "observed_at"));
         addCheck(checks, "duplicate_confirmation_history_count",
                 expected.path("duplicate_confirmation_history_count").asInt(),
                 confirmationStore.history(incidentId, ConfirmationRole.INCIDENT).size());
 
         saveConfirmation(incidentId, "REQ-BACKEND-STATE-FACILITY-1",
-                "FACILITY", "7647-01-0", "염산");
+                "FACILITY", "7647-01-0", "염산", "CONTAINER_LABEL",
+                "2026-07-31T14:25:00+09:00");
         seedAnalysis(incidentId, oldAnalysisId, true);
-        saveConfirmation(incidentId, "REQ-BACKEND-STATE-INCIDENT-CORRECTION",
-                "INCIDENT", "7664-93-9", "황산");
+        JsonNode newEvidenceResponse = saveConfirmation(
+                incidentId, "REQ-BACKEND-STATE-NEW-EVIDENCE", "INCIDENT",
+                text(newConflictingEvidence, "cas_number"),
+                text(newConflictingEvidence, "display_name"),
+                text(newConflictingEvidence, "confirmation_basis"),
+                text(newConflictingEvidence, "observed_at"));
 
-        addCheck(checks, "confirmation_revision_count_after_correction",
-                expected.path("confirmation_revision_count_after_correction").asInt(),
+        addCheck(checks, "confirmation_revision_count_after_new_evidence",
+                expected.path("confirmation_revision_count_after_new_evidence").asInt(),
                 confirmationStore.history(incidentId, ConfirmationRole.INCIDENT).size());
         addCheck(checks, "old_confirmation_status",
                 expected.path("old_confirmation_status").asText(),
                 confirmationStore.findById(oldIncidentId).orElseThrow().status().name());
-        addCheck(checks, "active_incident_confirmation_id", correctedIncidentId,
+        addCheck(checks, "old_confirmation_superseded_by_new_evidence",
+                expected.path("old_confirmation_superseded_by_new_evidence").asBoolean(),
+                newEvidenceIncidentId.equals(confirmationStore.findById(oldIncidentId)
+                        .orElseThrow().supersededByConfirmationId()));
+        addCheck(checks, "active_incident_confirmation_id", newEvidenceIncidentId,
                 confirmationStore.findActive(incidentId, ConfirmationRole.INCIDENT)
                         .orElseThrow().confirmationId());
         addCheck(checks, "active_confirmation_status",
                 expected.path("active_confirmation_status").asText(),
-                confirmationStore.findById(correctedIncidentId).orElseThrow()
+                confirmationStore.findById(newEvidenceIncidentId).orElseThrow()
                         .status().name());
+        addCheck(checks, "new_evidence_confirmation_basis",
+                expected.path("new_evidence_confirmation_basis").asText(),
+                confirmationStore.findById(newEvidenceIncidentId).orElseThrow()
+                        .confirmationBasis().name());
+        addCheck(checks, "new_evidence_confirmed_cas",
+                expected.path("new_evidence_confirmed_cas").asText(),
+                confirmationStore.findById(newEvidenceIncidentId).orElseThrow().casNumber());
+        addCheck(checks, "new_evidence_confirmation_revision",
+                expected.path("new_evidence_confirmation_revision").asLong(),
+                confirmationStore.findById(newEvidenceIncidentId).orElseThrow().revision());
+        addCheck(checks, "new_evidence_reanalyze_required",
+                expected.path("new_evidence_reanalyze_required").asBoolean(),
+                newEvidenceResponse.path("reanalyzeRequired").asBoolean());
 
         String staleBody = recordRequest(oldAnalysisId,
-                List.of(correctedIncidentId, facilityId));
+                List.of(newEvidenceIncidentId, facilityId));
         MvcResult stale = saveRecord(incidentId, "REQ-BACKEND-STATE-STALE", staleBody);
         addCheck(checks, "stale_record_http_status",
                 expected.path("stale_record_http_status").asInt(),
@@ -161,7 +192,7 @@ class BackendSafetyStateEvaluationTest {
 
         seedAnalysis(incidentId, freshAnalysisId, false);
         String freshBody = recordRequest(freshAnalysisId,
-                List.of(correctedIncidentId, facilityId));
+                List.of(newEvidenceIncidentId, facilityId));
         MvcResult fresh = saveRecord(incidentId, "REQ-BACKEND-STATE-FRESH", freshBody);
         MvcResult retry = saveRecord(incidentId, "REQ-BACKEND-STATE-RETRY", freshBody);
         JsonNode freshResponse = objectMapper.readTree(fresh.getResponse().getContentAsString());
@@ -198,14 +229,16 @@ class BackendSafetyStateEvaluationTest {
                 invocationCount(recordIdGenerator, "nextId"));
     }
 
-    private void saveConfirmation(String incidentId, String requestId, String role,
-                                  String casNumber, String displayName) throws Exception {
+    private JsonNode saveConfirmation(String incidentId, String requestId, String role,
+                                      String casNumber, String displayName,
+                                      String confirmationBasis, String observedAt)
+            throws Exception {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("role", role);
         body.put("casNumber", casNumber);
         body.put("displayName", displayName);
-        body.put("confirmationBasis", "CONTAINER_LABEL");
-        body.put("observedAt", "2026-07-31T14:25:00+09:00");
+        body.put("confirmationBasis", confirmationBasis);
+        body.put("observedAt", observedAt);
         MvcResult result = mockMvc.perform(post("/api/c2guard/v1/incidents/"
                         + incidentId + "/confirmations")
                         .cookie(responder(tokenService, incidentId))
@@ -214,6 +247,7 @@ class BackendSafetyStateEvaluationTest {
                         .content(objectMapper.writeValueAsBytes(body)))
                 .andReturn();
         assertEquals(201, result.getResponse().getStatus());
+        return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 
     private void seedAnalysis(String incidentId, String analysisId,
@@ -308,7 +342,7 @@ class BackendSafetyStateEvaluationTest {
         Map<String, Object> report = new LinkedHashMap<>();
         long passedCount = checks.stream().filter(row -> Boolean.TRUE.equals(
                 row.get("passed"))).count();
-        report.put("schema_version", "chemicheck119-backend-safety-evaluation-v1");
+        report.put("schema_version", "chemicheck119-backend-safety-evaluation-v2");
         report.put("status", failure == null ? "COMPLETED" : "FAILED");
         report.put("claim_scope", "INTERNAL_REGRESSION_ONLY");
         report.put("field_validated", false);
@@ -364,7 +398,7 @@ class BackendSafetyStateEvaluationTest {
     private Path reportPath() {
         String configured = System.getenv("CHEMICHECK119_BACKEND_SAFETY_REPORT");
         return configured == null || configured.isBlank()
-                ? Path.of("build/reports/evaluation/backend-safety-state-v1.json")
+                ? Path.of("build/reports/evaluation/backend-safety-state-v2.json")
                 : Path.of(configured);
     }
 

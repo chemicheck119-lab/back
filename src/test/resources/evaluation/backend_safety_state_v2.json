@@ -1,0 +1,57 @@
+{
+  "schema_version": "chemicheck119-backend-safety-scenario-v2",
+  "case_id": "BACKEND-STATE-NEW-EVIDENCE-001",
+  "review_status": "DRAFT_INTERNAL_REGRESSION",
+  "source_type": "DETERMINISTIC_STATE_TRANSITION",
+  "claim_scope": "INTERNAL_REGRESSION_ONLY",
+  "input": {
+    "incident_id": "INC-BACKEND-STATE-EVAL-002",
+    "old_incident_confirmation_id": "CNF-BACKEND-STATE-INCIDENT-1",
+    "facility_confirmation_id": "CNF-BACKEND-STATE-FACILITY-1",
+    "new_evidence_incident_confirmation_id": "CNF-BACKEND-STATE-INCIDENT-2",
+    "old_analysis_id": "ANL-BACKEND-STATE-OLD",
+    "fresh_analysis_id": "ANL-BACKEND-STATE-FRESH",
+    "record_id": "REC-BACKEND-STATE-001",
+    "initial_evidence": {
+      "cas_number": "7681-52-9",
+      "display_name": "차아염소산나트륨",
+      "confirmation_basis": "CONTAINER_LABEL",
+      "observed_at": "2026-07-31T14:25:00+09:00"
+    },
+    "new_conflicting_evidence": {
+      "cas_number": "7664-93-9",
+      "display_name": "황산",
+      "confirmation_basis": "SITE_MSDS",
+      "observed_at": "2026-07-31T14:28:00+09:00"
+    }
+  },
+  "expected": {
+    "duplicate_confirmation_history_count": 1,
+    "confirmation_revision_count_after_new_evidence": 2,
+    "old_confirmation_status": "SUPERSEDED",
+    "old_confirmation_superseded_by_new_evidence": true,
+    "active_confirmation_status": "ACTIVE",
+    "new_evidence_confirmation_basis": "SITE_MSDS",
+    "new_evidence_confirmed_cas": "7664-93-9",
+    "new_evidence_confirmation_revision": 2,
+    "new_evidence_reanalyze_required": true,
+    "stale_record_http_status": 409,
+    "stale_record_error_code": "INCIDENT_REFERENCE_CONFLICT",
+    "record_count_after_stale_attempt": 0,
+    "fresh_record_http_status": 201,
+    "retry_record_http_status": 201,
+    "record_count_after_exact_retry": 1,
+    "message_count_after_exact_retry": 2,
+    "analysis_reference_count_after_exact_retry": 1,
+    "confirmation_reference_count_after_exact_retry": 2,
+    "generated_confirmation_id_count": 3,
+    "generated_record_id_count": 1
+  },
+  "limitations": [
+    "H2 PostgreSQL compatibility mode의 단일 프로세스 deterministic 회귀입니다.",
+    "새 충돌 근거는 인증된 사용자가 confirmation endpoint로 확인한 모의 SITE_MSDS 입력입니다.",
+    "STT·OCR·Retriever 후보만으로 기존 사람 확인을 자동 무효화하는 기능을 검증하지 않습니다.",
+    "analysis snapshot은 Model API 호출 대신 서버 저장소에 고정 fixture로 주입합니다.",
+    "Cloud SQL PostgreSQL의 동시성, 장애복구, 가용성 또는 현장 안전성을 증명하지 않습니다."
+  ]
+}
