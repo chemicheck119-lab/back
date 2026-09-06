@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestSpeechApiClientTest {
 
@@ -140,6 +141,23 @@ class RestSpeechApiClientTest {
         assertEquals("SPEECH_RESPONSE_TOO_LARGE", large.getCode());
         assertFalse(large.isRetryable());
         assertEquals(2, server.getRequestCount());
+    }
+
+    @Test
+    void mapsPlainTextPlatform429ToRetryableBusy() {
+        server.enqueue(new MockResponse().setResponseCode(429)
+                .addHeader("Content-Type", "text/plain")
+                .setBody("The request was aborted because there was no available instance."));
+
+        SpeechApiException busy = assertThrows(SpeechApiException.class,
+                () -> client(SpeechApiIdentityTokenProvider.disabled())
+                        .transcribe(wav(), MediaType.parseMediaType("audio/wav"), REQUEST_ID));
+
+        assertEquals(SpeechApiErrorKind.BUSY, busy.getKind());
+        assertEquals("SPEECH_HTTP_429", busy.getCode());
+        assertEquals(429, busy.getUpstreamStatus());
+        assertTrue(busy.isRetryable());
+        assertEquals(1, server.getRequestCount());
     }
 
     private SpeechApiClient client(SpeechApiIdentityTokenProvider tokenProvider) {

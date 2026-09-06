@@ -102,14 +102,16 @@ final class RestSpeechApiClient implements SpeechApiClient {
     private JsonNode handleResponse(ClientHttpResponse response, String requestId)
             throws IOException {
         int status = response.getStatusCode().value();
-        JsonNode body = readBounded(response.getBody(), requestId);
+        JsonNode body = readBounded(response.getBody(), requestId,
+                status >= 200 && status < 300);
         if (status >= 200 && status < 300) {
             return body;
         }
         throw mapHttpError(status, body, requestId);
     }
 
-    private JsonNode readBounded(InputStream input, String requestId) throws IOException {
+    private JsonNode readBounded(InputStream input, String requestId, boolean requireJson)
+            throws IOException {
         byte[] bytes = input.readNBytes(properties.getMaxResponseBytes() + 1);
         if (bytes.length > properties.getMaxResponseBytes()) {
             throw failure(SpeechApiErrorKind.CONTRACT, "SPEECH_RESPONSE_TOO_LARGE",
@@ -122,6 +124,9 @@ final class RestSpeechApiClient implements SpeechApiClient {
         try {
             return objectMapper.readTree(bytes);
         } catch (IOException error) {
+            if (!requireJson) {
+                return JsonNodeFactory.instance.objectNode();
+            }
             throw failure(SpeechApiErrorKind.CONTRACT, "SPEECH_RESPONSE_INVALID_JSON",
                     "Speech API 응답이 JSON이 아닙니다.", false,
                     502, requestId, error);
@@ -146,7 +151,7 @@ final class RestSpeechApiClient implements SpeechApiClient {
         String code = textOrDefault(detail.path("code"), "SPEECH_HTTP_" + status);
         String message = textOrDefault(detail.path("message"),
                 "Speech API가 HTTP " + status + "를 반환했습니다.");
-        boolean retryable = detail.path("retryable").asBoolean(false);
+        boolean retryable = detail.path("retryable").asBoolean(status == 429);
         SpeechApiErrorKind kind = switch (status) {
             case 401 -> SpeechApiErrorKind.AUTHENTICATION;
             case 400, 413, 415, 422 -> SpeechApiErrorKind.CONTRACT;
