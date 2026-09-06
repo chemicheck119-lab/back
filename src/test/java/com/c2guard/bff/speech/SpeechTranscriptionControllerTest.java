@@ -167,6 +167,25 @@ class SpeechTranscriptionControllerTest {
                         .value("음성 전사 요청이 많습니다. 잠시 후 다시 시도하세요."));
     }
 
+    @Test
+    void mapsTimeoutToRetryable504WithoutLeakingDetails() throws Exception {
+        when(speechApiClient.transcribe(argThat(value -> value.length == 44),
+                eq(MediaType.parseMediaType("audio/wav")), eq(REQUEST_ID)))
+                .thenThrow(new SpeechApiException(SpeechApiErrorKind.TIMEOUT,
+                        "SPEECH_TIMEOUT", "upstream internal timeout detail", true,
+                        null, REQUEST_ID, null));
+
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, INCIDENT_ID))
+                        .header("X-Request-Id", REQUEST_ID)
+                        .contentType("audio/wav").content(wav(44)))
+                .andExpect(status().isGatewayTimeout())
+                .andExpect(jsonPath("$.error.code").value("SPEECH_TIMEOUT"))
+                .andExpect(jsonPath("$.error.retryable").value(true))
+                .andExpect(jsonPath("$.error.message")
+                        .value("음성 전사 서비스가 제한 시간 안에 응답하지 않았습니다. 다시 시도하세요."));
+    }
+
     private JsonNode fixture() throws Exception {
         return objectMapper.readTree(Files.readString(Path.of(
                 "src/test/resources/fixtures/speech/transcription_response.json")));
