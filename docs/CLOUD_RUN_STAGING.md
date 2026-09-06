@@ -42,6 +42,9 @@ artifact가 reviewed staging이라는 뜻이 아니다. 현 구성은 공모전�
 | `GCP_MODEL_API_BASE_URL` | Model API preview stable URL |
 | `GCP_MODEL_API_KEY_SECRET` | `chemicheck119-model-api-key` |
 | `GCP_MODEL_API_KEY_SECRET_VERSION` | `1` |
+| `GCP_SPEECH_API_BASE_URL` | private Speech API preview stable URL |
+| `GCP_SPEECH_API_KEY_SECRET` | `chemicheck119-speech-api-key` |
+| `GCP_SPEECH_API_KEY_SECRET_VERSION` | 고정된 활성 Secret version |
 | `GCP_SESSION_SECRET` | `chemicheck119-be-session-secret-staging` |
 | `GCP_SESSION_SECRET_VERSION` | `1` |
 | `GCP_DATABASE_URL_SECRET` | 승인된 PostgreSQL JDBC URL secret 이름 |

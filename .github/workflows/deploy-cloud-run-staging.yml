@@ -77,6 +77,9 @@ jobs:
           GCP_MODEL_API_BASE_URL: ${{ vars.GCP_MODEL_API_BASE_URL }}
           GCP_MODEL_API_KEY_SECRET: ${{ vars.GCP_MODEL_API_KEY_SECRET }}
           GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
+          GCP_SPEECH_API_BASE_URL: ${{ vars.GCP_SPEECH_API_BASE_URL }}
+          GCP_SPEECH_API_KEY_SECRET: ${{ vars.GCP_SPEECH_API_KEY_SECRET }}
+          GCP_SPEECH_API_KEY_SECRET_VERSION: ${{ vars.GCP_SPEECH_API_KEY_SECRET_VERSION }}
           GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
           GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
           GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME }}
@@ -122,6 +125,9 @@ jobs:
             GCP_MODEL_API_BASE_URL \
             GCP_MODEL_API_KEY_SECRET \
             GCP_MODEL_API_KEY_SECRET_VERSION \
+            GCP_SPEECH_API_BASE_URL \
+            GCP_SPEECH_API_KEY_SECRET \
+            GCP_SPEECH_API_KEY_SECRET_VERSION \
             GCP_SESSION_SECRET \
             GCP_SESSION_SECRET_VERSION \
             GCP_CORS_ALLOWED_ORIGINS \
@@ -141,6 +147,7 @@ jobs:
           done
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$GCP_MODEL_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GCP_SPEECH_API_KEY_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_SESSION_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           [[ "$GCP_PUBLIC_ANALYSIS_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED" =~ ^(true|false)$ ]]
@@ -180,6 +187,8 @@ jobs:
             [[ "$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
           fi
           [[ "$GCP_MODEL_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
+          [[ "$GCP_SPEECH_API_BASE_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
+          [[ "$GCP_SPEECH_API_KEY_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
           test "$GCP_CORS_ALLOWED_ORIGINS" = "https://chemicheck119.site"
           if [ "$GCP_REQUIRE_EXTERNAL_DATABASE" = "true" ]; then
             for name in \
@@ -264,6 +273,9 @@ jobs:
           GCP_MODEL_API_BASE_URL: ${{ vars.GCP_MODEL_API_BASE_URL }}
           GCP_MODEL_API_KEY_SECRET: ${{ vars.GCP_MODEL_API_KEY_SECRET }}
           GCP_MODEL_API_KEY_SECRET_VERSION: ${{ vars.GCP_MODEL_API_KEY_SECRET_VERSION }}
+          GCP_SPEECH_API_BASE_URL: ${{ vars.GCP_SPEECH_API_BASE_URL }}
+          GCP_SPEECH_API_KEY_SECRET: ${{ vars.GCP_SPEECH_API_KEY_SECRET }}
+          GCP_SPEECH_API_KEY_SECRET_VERSION: ${{ vars.GCP_SPEECH_API_KEY_SECRET_VERSION }}
           GCP_SESSION_SECRET: ${{ vars.GCP_SESSION_SECRET }}
           GCP_SESSION_SECRET_VERSION: ${{ vars.GCP_SESSION_SECRET_VERSION }}
           GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME: ${{ vars.GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME }}
@@ -310,6 +322,7 @@ jobs:
             echo "- Image: \`${{ steps.image.outputs.image_digest }}\`"
             echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
             echo "- URL: \`${{ steps.deploy.outputs.service_url }}\`"
+            echo "- Speech API: \`${{ vars.GCP_SPEECH_API_BASE_URL }}\`"
             echo "- Public analysis: \`${{ inputs.public_analysis_enabled }}\`"
             echo "- Public incident replay: \`${{ inputs.public_incident_replay_enabled }}\`"
             echo "- Public synthetic confirmation: \`${{ inputs.public_synthetic_confirmation_enabled }}\`"
