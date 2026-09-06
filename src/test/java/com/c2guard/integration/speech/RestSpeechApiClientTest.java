@@ -18,6 +18,7 @@ import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -157,6 +158,22 @@ class RestSpeechApiClientTest {
         assertEquals("SPEECH_HTTP_429", busy.getCode());
         assertEquals(429, busy.getUpstreamStatus());
         assertTrue(busy.isRetryable());
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    void timesOutWithoutRetryingUpstream() throws Exception {
+        properties.setResponseTimeout(Duration.ofMillis(100));
+        server.enqueue(ok(fixture().toString())
+                .setHeadersDelay(500, TimeUnit.MILLISECONDS));
+
+        SpeechApiException timeout = assertThrows(SpeechApiException.class,
+                () -> client(SpeechApiIdentityTokenProvider.disabled())
+                        .transcribe(wav(), MediaType.parseMediaType("audio/wav"), REQUEST_ID));
+
+        assertEquals(SpeechApiErrorKind.TIMEOUT, timeout.getKind());
+        assertEquals("SPEECH_TIMEOUT", timeout.getCode());
+        assertTrue(timeout.isRetryable());
         assertEquals(1, server.getRequestCount());
     }
 
