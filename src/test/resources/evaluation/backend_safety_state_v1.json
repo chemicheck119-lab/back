@@ -1,0 +1,38 @@
+{
+  "schema_version": "chemicheck119-backend-safety-scenario-v1",
+  "case_id": "BACKEND-STATE-001",
+  "review_status": "DRAFT_INTERNAL_REGRESSION",
+  "source_type": "DETERMINISTIC_STATE_TRANSITION",
+  "claim_scope": "INTERNAL_REGRESSION_ONLY",
+  "input": {
+    "incident_id": "INC-BACKEND-STATE-EVAL-001",
+    "old_incident_confirmation_id": "CNF-BACKEND-STATE-INCIDENT-1",
+    "facility_confirmation_id": "CNF-BACKEND-STATE-FACILITY-1",
+    "corrected_incident_confirmation_id": "CNF-BACKEND-STATE-INCIDENT-2",
+    "old_analysis_id": "ANL-BACKEND-STATE-OLD",
+    "fresh_analysis_id": "ANL-BACKEND-STATE-FRESH",
+    "record_id": "REC-BACKEND-STATE-001"
+  },
+  "expected": {
+    "duplicate_confirmation_history_count": 1,
+    "confirmation_revision_count_after_correction": 2,
+    "old_confirmation_status": "SUPERSEDED",
+    "active_confirmation_status": "ACTIVE",
+    "stale_record_http_status": 409,
+    "stale_record_error_code": "INCIDENT_REFERENCE_CONFLICT",
+    "record_count_after_stale_attempt": 0,
+    "fresh_record_http_status": 201,
+    "retry_record_http_status": 201,
+    "record_count_after_exact_retry": 1,
+    "message_count_after_exact_retry": 2,
+    "analysis_reference_count_after_exact_retry": 1,
+    "confirmation_reference_count_after_exact_retry": 2,
+    "generated_confirmation_id_count": 3,
+    "generated_record_id_count": 1
+  },
+  "limitations": [
+    "H2 PostgreSQL compatibility mode의 단일 프로세스 deterministic 회귀입니다.",
+    "analysis snapshot은 Model API 호출 대신 서버 저장소에 고정 fixture로 주입합니다.",
+    "Cloud SQL PostgreSQL의 동시성, 장애복구, 가용성 또는 현장 안전성을 증명하지 않습니다."
+  ]
+}
