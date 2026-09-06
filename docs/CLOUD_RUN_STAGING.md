@@ -1,8 +1,8 @@
 # Cloud Run staging 배포
 
 BE staging은 기존 GCP 프로젝트 `chemi-check`의 서울 리전(`asia-northeast3`)에서 실행한다.
-AI staging과 같은 Artifact Registry 및 runtime service account를 재사용하되, BE 세션 시크릿은
-별도의 Secret Manager secret으로 분리한다.
+Model API preview와 같은 Artifact Registry 및 runtime service account를 재사용하되, BE 세션
+시크릿은 별도의 Secret Manager secret으로 분리한다.
 
 ## 현재 서비스
 
@@ -10,7 +10,7 @@ AI staging과 같은 Artifact Registry 및 runtime service account를 재사용�
 |---|---|
 | Cloud Run service | `chemicheck119-be-staging` |
 | Stable URL | `https://chemicheck119-be-staging-w6s6lwanpa-du.a.run.app` |
-| Model API | `https://chemicheck119-model-api-staging-w6s6lwanpa-du.a.run.app` |
+| Model API | `https://chemicheck119-model-api-preview-w6s6lwanpa-du.a.run.app` |
 | Container repository | `asia-northeast3-docker.pkg.dev/chemi-check/chemicheck119/be` |
 | Runtime service account | `chemicheck119-runtime@chemi-check.iam.gserviceaccount.com` |
 
@@ -20,9 +20,14 @@ record·session API를 모두 인증하고, 서명된 session cookie가 없으�
 staging 배포 스크립트가 cookie 이름을 `__session`으로 고정한다. Model API Key와 session signing
 secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 고정 버전을 참조한다.
 
+현재 Model API는 `development` 환경의 `competition-preview` release tier이며
+`expert_reviewed=false`다. BFF service 이름의 `staging`은 BE 실행 환경을 뜻할 뿐, 연결된 AI
+artifact가 reviewed staging이라는 뜻이 아니다. 현 구성은 공모전·내부 QA용 개발 preview로만
+설명하고 현장 파일럿이나 상용 운영 근거로 사용하지 않는다.
+
 ## GitHub repository variables
 
-`chemicheck119/BE_Repository`에 다음 Actions variables를 등록한다. 비밀 값은 GitHub에 복사하지
+`chemicheck119-lab/back`에 다음 Actions variables를 등록한다. 비밀 값은 GitHub에 복사하지
 않고 Secret Manager 리소스 이름과 버전만 저장한다.
 
 | 이름 | staging 값 |
@@ -34,7 +39,7 @@ secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 �
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | BE 전용 provider 전체 resource name |
 | `GCP_DEPLOY_SERVICE_ACCOUNT` | `chemicheck119-github-deploy@chemi-check.iam.gserviceaccount.com` |
 | `GCP_RUNTIME_SERVICE_ACCOUNT` | `chemicheck119-runtime@chemi-check.iam.gserviceaccount.com` |
-| `GCP_MODEL_API_BASE_URL` | AI staging stable URL |
+| `GCP_MODEL_API_BASE_URL` | Model API preview stable URL |
 | `GCP_MODEL_API_KEY_SECRET` | `chemicheck119-model-api-key` |
 | `GCP_MODEL_API_KEY_SECRET_VERSION` | `1` |
 | `GCP_SESSION_SECRET` | `chemicheck119-be-session-secret-staging` |
@@ -58,7 +63,7 @@ secret은 Cloud Run 환경변수의 평문 값이 아니라 Secret Manager의 �
 | `GCP_MIN_INSTANCES` | `0` |
 | `GCP_MAX_INSTANCES` | `1` |
 
-Workload Identity provider는 `chemicheck119/BE_Repository`의 `refs/heads/develop`만 허용한다.
+Workload Identity provider는 `chemicheck119-lab/back`의 `refs/heads/develop`만 허용한다.
 AI 저장소의 provider 조건을 넓히지 않고 BE provider를 별도로 사용한다.
 
 ## 배포와 롤백
