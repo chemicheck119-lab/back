@@ -28,6 +28,13 @@ public record SubstanceConfirmation(
                 ConfirmationStatus.SUPERSEDED, nextConfirmationId, at);
     }
 
+    public SubstanceConfirmation cancelledAt(Instant at) {
+        return new SubstanceConfirmation(confirmationId, incidentId, role, casNumber,
+                displayName, confirmationBasis, observedAt, confirmedByUserId,
+                confirmedByOrganizationId, createdAt, createdRequestId, revision,
+                ConfirmationStatus.CANCELLED, null, at);
+    }
+
     boolean semanticallyEquals(ConfirmationSaveCommand command) {
         return role == command.role()
                 && casNumber.equals(command.casNumber())

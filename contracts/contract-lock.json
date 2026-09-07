@@ -20,7 +20,7 @@
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "a128f7de82280b7934166e3a5921005d6e15862fcc9ce4a730b2972fe243c830",
+      "sha256": "4f7d145eeb6c3468e09f9efaf3ed70d1250eeda4c6fdcfa7aefb14a934091f41",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
@@ -32,7 +32,8 @@
         "Record save requires coded field outcomes and BE derives incident substance and RuleEngine risk facts from authoritative snapshots",
         "Authenticated incident-scoped transcription proxy accepts bounded WAV and never exposes Speech API credentials to browsers",
         "Transcription output requires responder review and cannot perform chemical identification, CAS confirmation, or risk assessment",
-        "Authenticated pre-incident transcription supports voice-first intake without inventing an incident scope"
+        "Authenticated pre-incident transcription supports voice-first intake without inventing an incident scope",
+        "Authenticated confirmation cancellation requires the exact active role and confirmation ID, preserves a separate audit event, and forces reanalysis"
       ]
     },
     {

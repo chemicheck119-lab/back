@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -229,6 +230,38 @@ class ConfirmationGateIntegrationTest {
                 .andExpect(jsonPath("$.error.retryable").value(true));
 
         assertTrue(snapshotStore.find(analysisId).isEmpty());
+    }
+
+    @Test
+    void cancelledFacilityConfirmationIsRemovedFromTheNextAnalysisRequest()
+            throws Exception {
+        String incidentId = "INC-GATE-CANCELLED-FACILITY";
+        String requestId = "REQ-GATE-AFTER-CANCEL";
+        when(idGenerator.nextId()).thenReturn(
+                "CFM-GATE-CANCEL-INCIDENT", "CFM-GATE-CANCEL-FACILITY");
+        save(incidentId, "REQ-GATE-CANCEL-INCIDENT", incidentFixture());
+        save(incidentId, "REQ-GATE-CANCEL-FACILITY", facilityFixture());
+        mockMvc.perform(delete("/api/c2guard/v1/incidents/" + incidentId
+                        + "/confirmations/FACILITY/CFM-GATE-CANCEL-FACILITY")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-GATE-CANCEL"))
+                .andExpect(status().isOk());
+        stubModelResponse(requestId, incidentId, "ANL-GATE-AFTER-CANCEL");
+
+        mockMvc.perform(post("/api/c2guard/v1/incidents/analyze")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisFixture(incidentId)))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<JsonNode> request = ArgumentCaptor.forClass(JsonNode.class);
+        verify(modelApiClient).stepIncidentAgent(request.capture(), eq(requestId));
+        JsonNode analysis = request.getValue().path("analysis");
+        assertTrue(analysis.has("confirmed_incident_substance"));
+        assertFalse(analysis.has("confirmed_facility_substance"));
+        assertTrue(confirmationStore.findActive(
+                incidentId, ConfirmationRole.FACILITY).isEmpty());
     }
 
     private void save(String incidentId, String requestId, String body) throws Exception {

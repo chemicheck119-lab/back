@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -118,6 +119,22 @@ class BffSecurityIntegrationTest {
                         .content("{}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.requestId").value("REQ-PATH-SCOPE-403"))
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void protectsConfirmationCancellationAndAppliesIncidentScope() throws Exception {
+        String path = "/api/c2guard/v1/incidents/INC-FORBIDDEN/confirmations/INCIDENT/CFM-1";
+
+        mockMvc.perform(delete(path)
+                        .header("X-Request-Id", "REQ-CANCEL-401"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+        mockMvc.perform(delete(path)
+                        .cookie(BffTestSession.responder(
+                                tokenService, "INC-ASSIGNED"))
+                        .header("X-Request-Id", "REQ-CANCEL-403"))
+                .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
     }
 
