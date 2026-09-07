@@ -38,6 +38,19 @@ public class ConfirmationService {
         return new ConfirmationResponse(requestId, store.save(command).confirmation());
     }
 
+    public ConfirmationCancellationResponse cancel(String incidentId,
+                                                   ConfirmationRole role,
+                                                   String confirmationId,
+                                                   String requestId,
+                                                   BffUserPrincipal principal) {
+        incidentAccessPolicy.requireAccess(principal, incidentId);
+        ConfirmationCancelCommand command = new ConfirmationCancelCommand(
+                incidentId, role, confirmationId, principal.userId(),
+                principal.organizationId(), requestId);
+        return new ConfirmationCancellationResponse(requestId,
+                store.cancel(command).cancellation());
+    }
+
     public ConfirmationResponse confirmSyntheticReplay(String incidentId,
                                                        ConfirmationRole role,
                                                        String casNumber,

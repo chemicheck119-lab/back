@@ -98,6 +98,81 @@ class ConfirmationStoreTest {
         }
     }
 
+    @Test
+    void cancellationClearsTheActiveHeadAndPreservesTheAuditHistory() {
+        ConfirmationStore store = store();
+        SubstanceConfirmation created = store.save(command(
+                "REQ-1", "user-1", "7681-52-9", "차아염소산나트륨")).confirmation();
+
+        ConfirmationCancelResult result = store.cancel(cancelCommand(
+                created.confirmationId(), "REQ-CANCEL-1", "user-2"));
+
+        assertTrue(result.created());
+        assertTrue(store.findActive("INC-1", ConfirmationRole.INCIDENT).isEmpty());
+        SubstanceConfirmation cancelled = store.findById(created.confirmationId())
+                .orElseThrow();
+        assertEquals(ConfirmationStatus.CANCELLED, cancelled.status());
+        assertEquals(CREATED_AT, cancelled.supersededAt());
+        ConfirmationCancellation audit = store.findCancellation(created.confirmationId())
+                .orElseThrow();
+        assertEquals("user-2", audit.cancelledByUserId());
+        assertEquals("REQ-CANCEL-1", audit.cancelledRequestId());
+        assertEquals(1, store.history("INC-1", ConfirmationRole.INCIDENT).size());
+    }
+
+    @Test
+    void exactCancellationRetryKeepsTheFirstCancellationAudit() {
+        ConfirmationStore store = store();
+        SubstanceConfirmation created = store.save(command(
+                "REQ-1", "user-1", "7681-52-9", "차아염소산나트륨")).confirmation();
+
+        ConfirmationCancelResult first = store.cancel(cancelCommand(
+                created.confirmationId(), "REQ-CANCEL-1", "user-2"));
+        ConfirmationCancelResult retry = store.cancel(cancelCommand(
+                created.confirmationId(), "REQ-CANCEL-2", "user-3"));
+
+        assertTrue(first.created());
+        assertFalse(retry.created());
+        assertEquals("user-2", retry.cancellation().cancelledByUserId());
+        assertEquals("REQ-CANCEL-1", retry.cancellation().cancelledRequestId());
+    }
+
+    @Test
+    void cancellationRejectsASupersededConfirmationId() {
+        ConfirmationStore store = store();
+        SubstanceConfirmation first = store.save(command(
+                "REQ-1", "user-1", "7681-52-9", "차아염소산나트륨")).confirmation();
+        SubstanceConfirmation current = store.save(command(
+                "REQ-2", "user-2", "7647-01-0", "염산")).confirmation();
+
+        com.c2guard.bff.common.BffContractException error =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        com.c2guard.bff.common.BffContractException.class,
+                        () -> store.cancel(cancelCommand(
+                                first.confirmationId(), "REQ-CANCEL", "user-3")));
+
+        assertEquals(409, error.getStatus());
+        assertEquals("INCIDENT_REFERENCE_CONFLICT", error.getCode());
+        assertEquals(current, store.findActive("INC-1", ConfirmationRole.INCIDENT)
+                .orElseThrow());
+    }
+
+    @Test
+    void aNewConfirmationAfterCancellationGetsTheNextRevision() {
+        ConfirmationStore store = store();
+        SubstanceConfirmation first = store.save(command(
+                "REQ-1", "user-1", "7681-52-9", "차아염소산나트륨")).confirmation();
+        store.cancel(cancelCommand(first.confirmationId(), "REQ-CANCEL", "user-2"));
+
+        SubstanceConfirmation restored = store.save(command(
+                "REQ-2", "user-3", "7647-01-0", "염산")).confirmation();
+
+        assertEquals(2, restored.revision());
+        assertEquals(ConfirmationStatus.CANCELLED,
+                store.findById(first.confirmationId()).orElseThrow().status());
+        assertEquals(ConfirmationStatus.ACTIVE, restored.status());
+    }
+
     private ConfirmationStore store() {
         AtomicInteger sequence = new AtomicInteger();
         ConfirmationIdGenerator generator = new ConfirmationIdGenerator() {
@@ -116,6 +191,14 @@ class ConfirmationStoreTest {
                 "INC-1", ConfirmationRole.INCIDENT, casNumber, displayName,
                 ConfirmationBasis.CONTAINER_LABEL,
                 OffsetDateTime.parse("2026-07-31T14:25:00+09:00"),
+                userId, "station-1", requestId);
+    }
+
+    private ConfirmationCancelCommand cancelCommand(String confirmationId,
+                                                    String requestId,
+                                                    String userId) {
+        return new ConfirmationCancelCommand(
+                "INC-1", ConfirmationRole.INCIDENT, confirmationId,
                 userId, "station-1", requestId);
     }
 }

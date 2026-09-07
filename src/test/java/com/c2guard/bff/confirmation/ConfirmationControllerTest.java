@@ -16,10 +16,12 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
 import static com.c2guard.security.BffTestSession.responder;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +129,106 @@ class ConfirmationControllerTest {
                 .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
 
         verifyNoInteractions(idGenerator);
+    }
+
+    @Test
+    void cancelsOnlyTheNamedActiveConfirmationAndStoresTheActor() throws Exception {
+        String incidentId = "INC-CONFIRM-CANCEL";
+        when(idGenerator.nextId()).thenReturn("CNF-CONFIRM-CANCEL-1");
+        create(incidentId, "REQ-CANCEL-CREATE");
+
+        mockMvc.perform(delete(path(incidentId)
+                        + "/INCIDENT/CNF-CONFIRM-CANCEL-1")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-CANCEL-DELETE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schemaVersion")
+                        .value("chemicheck119-dashboard-bff-v1"))
+                .andExpect(jsonPath("$.requestId").value("REQ-CANCEL-DELETE"))
+                .andExpect(jsonPath("$.incidentId").value(incidentId))
+                .andExpect(jsonPath("$.confirmationId")
+                        .value("CNF-CONFIRM-CANCEL-1"))
+                .andExpect(jsonPath("$.role").value("INCIDENT"))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty())
+                .andExpect(jsonPath("$.reanalyzeRequired").value(true));
+
+        assertTrue(store.findActive(incidentId, ConfirmationRole.INCIDENT).isEmpty());
+        ConfirmationCancellation audit = store.findCancellation(
+                "CNF-CONFIRM-CANCEL-1").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("responder-1",
+                audit.cancelledByUserId());
+        org.junit.jupiter.api.Assertions.assertEquals("fire-station-119",
+                audit.cancelledByOrganizationId());
+        org.junit.jupiter.api.Assertions.assertEquals("REQ-CANCEL-DELETE",
+                audit.cancelledRequestId());
+    }
+
+    @Test
+    void exactCancellationRetryReturnsTheOriginalAuditTime() throws Exception {
+        String incidentId = "INC-CONFIRM-CANCEL-RETRY";
+        when(idGenerator.nextId()).thenReturn("CNF-CONFIRM-CANCEL-RETRY-1");
+        create(incidentId, "REQ-CANCEL-RETRY-CREATE");
+
+        String cancelPath = path(incidentId)
+                + "/INCIDENT/CNF-CONFIRM-CANCEL-RETRY-1";
+        String first = mockMvc.perform(delete(cancelPath)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-CANCEL-RETRY-1"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String repeated = mockMvc.perform(delete(cancelPath)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-CANCEL-RETRY-2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestId").value("REQ-CANCEL-RETRY-2"))
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode firstJson = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(first);
+        com.fasterxml.jackson.databind.JsonNode repeatedJson = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(repeated);
+        org.junit.jupiter.api.Assertions.assertEquals(firstJson.path("cancelledAt"),
+                repeatedJson.path("cancelledAt"));
+        org.junit.jupiter.api.Assertions.assertEquals("REQ-CANCEL-RETRY-1",
+                store.findCancellation("CNF-CONFIRM-CANCEL-RETRY-1")
+                        .orElseThrow().cancelledRequestId());
+    }
+
+    @Test
+    void rejectsCancellationOfASupersededConfirmation() throws Exception {
+        String incidentId = "INC-CONFIRM-CANCEL-STALE";
+        when(idGenerator.nextId()).thenReturn(
+                "CNF-CONFIRM-CANCEL-STALE-1", "CNF-CONFIRM-CANCEL-STALE-2");
+        create(incidentId, "REQ-CANCEL-STALE-CREATE-1");
+        mockMvc.perform(post(path(incidentId))
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-CANCEL-STALE-CREATE-2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(fixture().replace("7681-52-9", "7647-01-0")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete(path(incidentId)
+                        + "/INCIDENT/CNF-CONFIRM-CANCEL-STALE-1")
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-CANCEL-STALE-DELETE"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("INCIDENT_REFERENCE_CONFLICT"))
+                .andExpect(jsonPath("$.error.retryable").value(true));
+
+        org.junit.jupiter.api.Assertions.assertEquals("CNF-CONFIRM-CANCEL-STALE-2",
+                store.findActive(incidentId, ConfirmationRole.INCIDENT)
+                        .orElseThrow().confirmationId());
+    }
+
+    private void create(String incidentId, String requestId) throws Exception {
+        mockMvc.perform(post(path(incidentId))
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(fixture()))
+                .andExpect(status().isCreated());
     }
 
     private String path(String incidentId) {

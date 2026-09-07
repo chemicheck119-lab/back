@@ -1084,6 +1084,70 @@
         "title": "DashboardConfirmationResponse",
         "type": "object"
       },
+      "DashboardConfirmationCancellationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelledAt": {
+            "format": "date-time",
+            "title": "Cancelledat",
+            "type": "string"
+          },
+          "confirmationId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Confirmationid",
+            "type": "string"
+          },
+          "incidentId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Incidentid",
+            "type": "string"
+          },
+          "reanalyzeRequired": {
+            "const": true,
+            "default": true,
+            "title": "Reanalyzerequired",
+            "type": "boolean"
+          },
+          "requestId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Requestid",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "INCIDENT",
+              "FACILITY"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "chemicheck119-dashboard-bff-v1",
+            "default": "chemicheck119-dashboard-bff-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "status": {
+            "const": "CANCELLED",
+            "default": "CANCELLED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "incidentId",
+          "confirmationId",
+          "role",
+          "status",
+          "cancelledAt"
+        ],
+        "title": "DashboardConfirmationCancellationResponse",
+        "type": "object"
+      },
       "DashboardConversationMessage": {
         "additionalProperties": false,
         "properties": {
@@ -4461,6 +4525,123 @@
           }
         ],
         "summary": "인증 사용자 기준 현장 물질 확인 레코드 생성",
+        "tags": [
+          "dashboard-bff"
+        ],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false
+      }
+    },
+    "/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}": {
+      "delete": {
+        "operationId": "cancel_confirmation_api_c2guard_v1_incidents__incidentId__confirmations__role___confirmationId__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incidentId",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
+              "title": "Incidentid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "enum": [
+                "INCIDENT",
+                "FACILITY"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "confirmationId",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
+              "title": "Confirmationid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardConfirmationCancellationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "ServiceSession": []
+          }
+        ],
+        "summary": "활성 현장 물질 확인 취소와 감사 이력 생성",
         "tags": [
           "dashboard-bff"
         ],

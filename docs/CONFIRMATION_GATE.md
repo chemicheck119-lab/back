@@ -4,6 +4,7 @@
 
 ```text
 POST /api/c2guard/v1/incidents/{incidentId}/confirmations
+DELETE /api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}
 ```
 
 요청은 `role`, `casNumber`, `displayName`, `confirmationBasis`, `observedAt`을 받습니다.
@@ -22,8 +23,13 @@ CAS는 `2~7자리-2자리-1자리` 형식과 CAS Registry Number check digit를 
   `SUPERSEDED`로 표시합니다. 과거 레코드는 삭제하거나 덮어쓰지 않습니다.
 - 저장은 incident·role 단위 원자 연산으로 직렬화되어 동시 exact retry도 권위 레코드 하나만
   생성합니다.
-- v1 공개 계약에는 취소 endpoint가 없으므로 삭제·취소를 허용하지 않습니다. 잘못된 확인은
-  새 correction으로 정정하며, 별도 취소가 필요하면 OpenAPI와 감사정책을 먼저 추가합니다.
+- 취소는 현재 활성 confirmation의 `role`과 `confirmationId`를 모두 정확히 지정해야 합니다.
+  오래되었거나 다른 사고·역할의 ID는 409로 거부해 보지 못한 최신 확인을 취소하지 못하게 합니다.
+- 취소된 레코드는 삭제하지 않고 `CANCELLED`로 남기며, 취소 사용자·소속·서버 시각·request ID를
+  `confirmation_cancellations` 감사 레코드에 보존합니다. 동일 대상 재시도는 최초 감사정보를
+  유지한 채 200을 반환합니다.
+- 취소 뒤 해당 role의 활성 head는 비워지고 `reanalyzeRequired=true`를 반환합니다. 이후 새 확인은
+  취소된 revision 다음 번호를 사용하며 취소 이력을 `SUPERSEDED`로 덮어쓰지 않습니다.
 
 운영 경로는 PostgreSQL과 Flyway migration으로 confirmation head·revision·과거 이력을
 영속화합니다. 로컬 단위 테스트의 process-local 대체 저장소와 운영 DB 경로는 같은 멱등·정정
@@ -38,6 +44,7 @@ FE가 보낸 후보나 confirmation ID를 신뢰하지 않고 저장소에서 �
 - INCIDENT만 활성: `confirmed_incident_substance`만 전달, 시설 확인 gate 유지
 - FACILITY만 활성: `confirmed_facility_substance`만 전달, 사고물질 확인 gate 유지
 - 둘 다 활성: 서로 다른 권위 ID를 가진 두 객체를 전달해 AI Rule 실행 조건 충족
+- 한쪽 취소: 취소된 role 객체를 다음 요청에서 제거해 다시 한쪽 확인 gate로 되돌림
 
 BE는 각 analysis snapshot에 실제 요청에 사용한 INCIDENT·FACILITY confirmation ID를 함께
 저장합니다. 분석 도중 활성 confirmation이 바뀌거나, 새 confirmation 뒤 Agent가 새 분석 없이
@@ -56,5 +63,5 @@ bash gradlew clean test --no-daemon --console=plain
 ```
 
 CAS 형식/check digit, 인증 사용자·서버 시각·request ID, 201 응답, exact retry, correction
-revision, 동시 중복, incident scope 403, 한쪽/양쪽 AI 요청 projection, snapshot–confirmation
-결합과 stale 결과 차단을 검증합니다.
+revision, 동시 중복, 취소 감사·취소 재시도·오래된 ID 거부, incident scope 403, 한쪽/양쪽/취소 뒤
+AI 요청 projection, snapshot–confirmation 결합과 stale 결과 차단을 검증합니다.

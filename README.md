@@ -137,6 +137,7 @@ FE 요청부터 Model API 호출까지 같은 request ID를 사용합니다. 로
 | `POST` | `/api/c2guard/v1/incidents/analyze` | 신고·현장 context를 AI Model API에 전달하고 화면 응답 생성 |
 | `POST` | `/api/c2guard/v1/substances/discover` | 관찰 특징·물질명 기반 후보 검색 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/confirmations` | 사고·시설물질 현장 확인과 revision 저장 |
+| `DELETE` | `/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}` | 활성 확인 취소와 감사 이력 보존 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/movement` | GPS 검증과 도로 경로·ETA 조회 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/transcriptions` | 생성된 사고의 후속 음성을 scope 검증 후 전사 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/record` | 분석·확인·이동 정보를 결합한 대응 기록 저장 |

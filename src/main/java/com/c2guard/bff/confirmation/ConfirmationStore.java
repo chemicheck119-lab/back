@@ -1,5 +1,6 @@
 package com.c2guard.bff.confirmation;
 
+import com.c2guard.bff.common.BffContractException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -28,6 +29,8 @@ public class ConfirmationStore {
     private final ConcurrentHashMap<IncidentRoleKey, List<SubstanceConfirmation>> histories =
             new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, SubstanceConfirmation> byId =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConfirmationCancellation> cancellationsById =
             new ConcurrentHashMap<>();
     private final Set<String> reservedIds = ConcurrentHashMap.newKeySet();
     private final ConfirmationIdGenerator idGenerator;
@@ -75,7 +78,7 @@ public class ConfirmationStore {
                     command.userId(), command.organizationId(), createdAt, command.requestId(),
                     revision, ConfirmationStatus.ACTIVE, null, null);
 
-            if (active != null) {
+            if (active != null && active.status() == ConfirmationStatus.ACTIVE) {
                 SubstanceConfirmation superseded = active.supersededBy(confirmationId, createdAt);
                 history.set(history.size() - 1, superseded);
                 byId.put(superseded.confirmationId(), superseded);
@@ -83,6 +86,45 @@ public class ConfirmationStore {
             history.add(created);
             byId.put(created.confirmationId(), created);
             result.set(new ConfirmationSaveResult(created, true));
+            return List.copyOf(history);
+        });
+        return result.get();
+    }
+
+    ConfirmationCancelResult cancel(ConfirmationCancelCommand command) {
+        if (jdbcTemplate != null) {
+            return cancelDatabase(command);
+        }
+        IncidentRoleKey key = new IncidentRoleKey(command.incidentId(), command.role());
+        AtomicReference<ConfirmationCancelResult> result = new AtomicReference<>();
+        histories.compute(key, (ignored, existing) -> {
+            ConfirmationCancellation previous = cancellationsById.get(
+                    command.confirmationId());
+            if (previous != null) {
+                requireSameCancellationTarget(previous, command);
+                result.set(new ConfirmationCancelResult(previous, false));
+                return existing;
+            }
+            if (existing == null || existing.isEmpty()) {
+                throw cancellationConflict();
+            }
+            List<SubstanceConfirmation> history = new ArrayList<>(existing);
+            SubstanceConfirmation active = history.get(history.size() - 1);
+            if (active.status() != ConfirmationStatus.ACTIVE
+                    || !active.confirmationId().equals(command.confirmationId())) {
+                throw cancellationConflict();
+            }
+
+            Instant cancelledAt = clock.instant();
+            SubstanceConfirmation cancelled = active.cancelledAt(cancelledAt);
+            ConfirmationCancellation cancellation = new ConfirmationCancellation(
+                    active.confirmationId(), active.incidentId(), active.role(),
+                    command.userId(), command.organizationId(), cancelledAt,
+                    command.requestId());
+            history.set(history.size() - 1, cancelled);
+            byId.put(cancelled.confirmationId(), cancelled);
+            cancellationsById.put(cancelled.confirmationId(), cancellation);
+            result.set(new ConfirmationCancelResult(cancellation, true));
             return List.copyOf(history);
         });
         return result.get();
@@ -129,6 +171,17 @@ public class ConfirmationStore {
                     confirmationId).stream().findFirst();
         }
         return Optional.ofNullable(byId.get(confirmationId));
+    }
+
+    public Optional<ConfirmationCancellation> findCancellation(String confirmationId) {
+        if (jdbcTemplate != null) {
+            return jdbcTemplate.query("""
+                            SELECT * FROM confirmation_cancellations
+                            WHERE confirmation_id = ?
+                            """, (resultSet, rowNumber) -> mapCancellation(resultSet),
+                    confirmationId).stream().findFirst();
+        }
+        return Optional.ofNullable(cancellationsById.get(confirmationId));
     }
 
     public List<SubstanceConfirmation> history(String incidentId, ConfirmationRole role) {
@@ -217,6 +270,83 @@ public class ConfirmationStore {
         throw new IllegalStateException("고유한 confirmation ID를 생성하지 못했습니다.");
     }
 
+    private ConfirmationCancelResult cancelDatabase(ConfirmationCancelCommand command) {
+        ConfirmationCancelResult result = transactionTemplate.execute(status -> {
+            ConfirmationHead head = jdbcTemplate.query("""
+                            SELECT active_confirmation_id, revision
+                            FROM incident_confirmation_heads
+                            WHERE incident_id = ? AND confirmation_role = ?
+                            FOR UPDATE
+                            """, (resultSet, rowNumber) -> new ConfirmationHead(
+                            resultSet.getString("active_confirmation_id"),
+                            resultSet.getLong("revision")),
+                    command.incidentId(), command.role().name()).stream()
+                    .findFirst()
+                    .orElseThrow(ConfirmationStore::cancellationConflict);
+
+            Optional<ConfirmationCancellation> previous = findCancellation(
+                    command.confirmationId());
+            if (previous.isPresent()) {
+                requireSameCancellationTarget(previous.get(), command);
+                return new ConfirmationCancelResult(previous.get(), false);
+            }
+            if (!command.confirmationId().equals(head.activeConfirmationId())) {
+                throw cancellationConflict();
+            }
+            SubstanceConfirmation active = findById(command.confirmationId())
+                    .orElseThrow(ConfirmationStore::cancellationConflict);
+            if (!active.incidentId().equals(command.incidentId())
+                    || active.role() != command.role()
+                    || active.status() != ConfirmationStatus.ACTIVE) {
+                throw cancellationConflict();
+            }
+
+            Instant cancelledAt = clock.instant();
+            int confirmationChanged = jdbcTemplate.update("""
+                            UPDATE substance_confirmations
+                            SET confirmation_status = 'CANCELLED',
+                                superseded_by_confirmation_id = NULL,
+                                superseded_at = ?
+                            WHERE confirmation_id = ?
+                              AND confirmation_status = 'ACTIVE'
+                            """, OffsetDateTime.ofInstant(cancelledAt, ZoneOffset.UTC),
+                    command.confirmationId());
+            int headChanged = jdbcTemplate.update("""
+                            UPDATE incident_confirmation_heads
+                            SET active_confirmation_id = NULL, revision = ?
+                            WHERE incident_id = ? AND confirmation_role = ?
+                              AND revision = ?
+                              AND active_confirmation_id = ?
+                            """, head.revision() + 1, command.incidentId(),
+                    command.role().name(), head.revision(), command.confirmationId());
+            if (confirmationChanged != 1 || headChanged != 1) {
+                throw new IllegalStateException(
+                        "confirmation 취소를 원자적으로 갱신하지 못했습니다.");
+            }
+
+            ConfirmationCancellation cancellation = new ConfirmationCancellation(
+                    command.confirmationId(), command.incidentId(), command.role(),
+                    command.userId(), command.organizationId(), cancelledAt,
+                    command.requestId());
+            jdbcTemplate.update("""
+                            INSERT INTO confirmation_cancellations (
+                                confirmation_id, incident_id, confirmation_role,
+                                cancelled_by_user_id, cancelled_by_organization_id,
+                                cancelled_at, cancelled_request_id
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, cancellation.confirmationId(), cancellation.incidentId(),
+                    cancellation.role().name(), cancellation.cancelledByUserId(),
+                    cancellation.cancelledByOrganizationId(),
+                    OffsetDateTime.ofInstant(cancellation.cancelledAt(), ZoneOffset.UTC),
+                    cancellation.cancelledRequestId());
+            return new ConfirmationCancelResult(cancellation, true);
+        });
+        if (result == null) {
+            throw new IllegalStateException("confirmation 취소 결과를 생성하지 못했습니다.");
+        }
+        return result;
+    }
+
     private void ensureHead(ConfirmationSaveCommand command) {
         Integer count = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*) FROM incident_confirmation_heads
@@ -293,6 +423,35 @@ public class ConfirmationStore {
                 ConfirmationStatus.valueOf(resultSet.getString("confirmation_status")),
                 resultSet.getString("superseded_by_confirmation_id"),
                 supersededAt == null ? null : supersededAt.toInstant());
+    }
+
+    private ConfirmationCancellation mapCancellation(java.sql.ResultSet resultSet)
+            throws java.sql.SQLException {
+        OffsetDateTime cancelledAt = resultSet.getObject(
+                "cancelled_at", OffsetDateTime.class);
+        return new ConfirmationCancellation(
+                resultSet.getString("confirmation_id"),
+                resultSet.getString("incident_id"),
+                ConfirmationRole.valueOf(resultSet.getString("confirmation_role")),
+                resultSet.getString("cancelled_by_user_id"),
+                resultSet.getString("cancelled_by_organization_id"),
+                cancelledAt.toInstant(),
+                resultSet.getString("cancelled_request_id"));
+    }
+
+    private static void requireSameCancellationTarget(
+            ConfirmationCancellation cancellation,
+            ConfirmationCancelCommand command) {
+        if (!cancellation.incidentId().equals(command.incidentId())
+                || cancellation.role() != command.role()) {
+            throw cancellationConflict();
+        }
+    }
+
+    private static BffContractException cancellationConflict() {
+        return new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
+                "현재 활성 confirmation과 취소 대상이 일치하지 않습니다. 최신 상태를 다시 확인하세요.",
+                true);
     }
 
     private String reserveId() {

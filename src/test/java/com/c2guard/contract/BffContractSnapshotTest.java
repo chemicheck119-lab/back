@@ -46,6 +46,7 @@ class BffContractSnapshotTest {
                 "/api/c2guard/v1/incidents/analyze", "post",
                 "/api/c2guard/v1/substances/discover", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/confirmations", "post",
+                "/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}", "delete",
                 "/api/c2guard/v1/incidents/{incidentId}/movement", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/record", "post",
                 "/api/c2guard/v1/incidents/{incidentId}/transcriptions", "post");
@@ -73,6 +74,9 @@ class BffContractSnapshotTest {
         assertSpeechTimeoutResponse(contract, "/api/c2guard/v1/transcriptions");
 
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/confirmations", "504"));
+        assertFalse(hasResponse(contract,
+                "/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}",
+                "504"));
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/movement", "504"));
         assertFalse(hasResponse(contract, "/api/c2guard/v1/incidents/{incidentId}/record", "504"));
     }
