@@ -1,0 +1,43 @@
+{
+  "schema_version": "chemicheck119-confirmation-cancellation-scenario-v1",
+  "case_id": "CONFIRMATION-CANCELLATION-STATE-001",
+  "review_status": "DRAFT_INTERNAL_REGRESSION",
+  "source_type": "DETERMINISTIC_STATE_TRANSITION",
+  "claim_scope": "INTERNAL_REGRESSION_ONLY",
+  "input": {
+    "incident_id": "INC-CONFIRMATION-CANCELLATION-EVAL-001",
+    "incident_confirmation_id": "CNF-CANCEL-EVAL-INCIDENT-1",
+    "facility_confirmation_id": "CNF-CANCEL-EVAL-FACILITY-1",
+    "pre_cancel_analysis_id": "ANL-CANCEL-EVAL-BEFORE",
+    "post_cancel_analysis_id": "ANL-CANCEL-EVAL-AFTER",
+    "record_id": "REC-CANCEL-EVAL-001"
+  },
+  "expected": {
+    "cancel_http_status": 200,
+    "cancel_response_status": "CANCELLED",
+    "cancel_reanalyze_required": true,
+    "cancel_retry_http_status": 200,
+    "cancel_retry_keeps_original_time": true,
+    "active_confirmation_count": 1,
+    "active_facility_confirmation_present": false,
+    "cancelled_confirmation_status": "CANCELLED",
+    "cancellation_audit_count": 1,
+    "cancellation_audit_request_id": "REQ-CANCEL-EVAL-CANCEL-1",
+    "stale_record_http_status": 409,
+    "stale_record_error_code": "INCIDENT_REFERENCE_CONFLICT",
+    "record_count_after_stale_attempt": 0,
+    "post_cancel_incident_binding": "CNF-CANCEL-EVAL-INCIDENT-1",
+    "post_cancel_facility_binding_is_null": true,
+    "post_cancel_rule_executed": false,
+    "post_cancel_risk_display_allowed": false,
+    "fresh_record_http_status": 201,
+    "fresh_record_confirmation_reference_count": 1,
+    "record_count_after_fresh_save": 1
+  },
+  "limitations": [
+    "기본 보고서는 H2 PostgreSQL compatibility mode의 단일 프로세스 deterministic 회귀입니다.",
+    "신고 음성, Parser, Resolver, Retriever 또는 실제 Model API를 호출하지 않습니다.",
+    "취소 대상은 인증된 사용자가 만든 모의 confirmation이며 실제 현장 확인이 아닙니다.",
+    "Cloud SQL 재시작 복구, 다중 인스턴스 동시성, 운영 가용성 또는 현장 안전성을 증명하지 않습니다."
+  ]
+}
