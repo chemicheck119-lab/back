@@ -188,6 +188,7 @@ curl http://127.0.0.1:8080/actuator/info
 - 서명 세션, 역할·incident scope, CORS와 401·403
 - confirmation 멱등성·정정 revision·CAS 검증
 - 새 충돌 근거 확인→append-only 정정→stale 분석 차단→exact retry [통합 상태 전이 보고서](docs/BACKEND_SAFETY_EVALUATION.md)
+- 확인 취소→과거 결과 무효화→1-CAS Gate 복귀 [confirmation 취소 안전 평가](docs/CONFIRMATION_CANCELLATION_EVALUATION.md)
 - AI client timeout·재시도·schema 오류
 - agent memory와 response snapshot
 - movement 입력·sequence·fail-closed 상태·Naver Directions adapter
@@ -263,6 +264,7 @@ scripts/deployment/                Cloud Run 배포·검증·롤백 스크립트
 - [사고 분석 BFF](docs/INCIDENT_ANALYSIS_BFF.md)
 - [물질 검색 BFF](docs/SUBSTANCE_DISCOVERY_BFF.md)
 - [현장 확인 Gate](docs/CONFIRMATION_GATE.md)
+- [confirmation 취소 안전 평가](docs/CONFIRMATION_CANCELLATION_EVALUATION.md)
 - [Agent Memory](docs/INCIDENT_AGENT_MEMORY.md)
 - [Movement BFF](docs/MOVEMENT_BFF.md)
 - [구조화 사고 데이터](docs/STRUCTURED_INCIDENT_DATA.md)
