@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -115,7 +116,7 @@ public class ConfirmationStore {
                 throw cancellationConflict();
             }
 
-            Instant cancelledAt = clock.instant();
+            Instant cancelledAt = cancellationTime();
             SubstanceConfirmation cancelled = active.cancelledAt(cancelledAt);
             ConfirmationCancellation cancellation = new ConfirmationCancellation(
                     active.confirmationId(), active.incidentId(), active.role(),
@@ -301,7 +302,7 @@ public class ConfirmationStore {
                 throw cancellationConflict();
             }
 
-            Instant cancelledAt = clock.instant();
+            Instant cancelledAt = cancellationTime();
             int confirmationChanged = jdbcTemplate.update("""
                             UPDATE substance_confirmations
                             SET confirmation_status = 'CANCELLED',
@@ -452,6 +453,10 @@ public class ConfirmationStore {
         return new BffContractException(409, "INCIDENT_REFERENCE_CONFLICT",
                 "현재 활성 confirmation과 취소 대상이 일치하지 않습니다. 최신 상태를 다시 확인하세요.",
                 true);
+    }
+
+    private Instant cancellationTime() {
+        return clock.instant().truncatedTo(ChronoUnit.MICROS);
     }
 
     private String reserveId() {
