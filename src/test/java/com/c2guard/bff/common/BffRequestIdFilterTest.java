@@ -61,6 +61,27 @@ class BffRequestIdFilterTest {
     }
 
     @Test
+    void recordsConfirmationCancellationWithoutIdentifierTags() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        BffRequestIdFilter filter = new BffRequestIdFilter(registry);
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "DELETE",
+                "/api/c2guard/v1/incidents/INC-SECRET-123/confirmations/FACILITY/CFM-SECRET-456");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (servletRequest, servletResponse) -> { });
+
+        assertEquals(1.0, registry.get("chemicheck119.bff.request.duration")
+                .tags("method", "DELETE", "route", "incidents.confirmation-cancel",
+                        "outcome", "SUCCESS")
+                .timer().count());
+        assertFalse(registry.getMeters().stream()
+                .flatMap(meter -> meter.getId().getTags().stream())
+                .anyMatch(tag -> tag.getValue().contains("INC-SECRET-123")
+                        || tag.getValue().contains("CFM-SECRET-456")));
+    }
+
+    @Test
     void routeClassifierCoversEveryCurrentBffContractWithoutIncidentIds() {
         assertEquals("incidents.analyze",
                 BffRequestIdFilter.routeName("/api/c2guard/v1/incidents/analyze"));
@@ -73,6 +94,9 @@ class BffRequestIdFilterTest {
         assertEquals("incidents.transcriptions",
                 BffRequestIdFilter.routeName(
                         "/api/c2guard/v1/incidents/INC-SECRET/transcriptions"));
+        assertEquals("incidents.confirmation-cancel",
+                BffRequestIdFilter.routeName(
+                        "/api/c2guard/v1/incidents/INC-SECRET/confirmations/FACILITY/CFM-SECRET"));
         assertEquals("session.get",
                 BffRequestIdFilter.routeName("/api/c2guard/v1/session"));
         assertEquals("session.logout",
