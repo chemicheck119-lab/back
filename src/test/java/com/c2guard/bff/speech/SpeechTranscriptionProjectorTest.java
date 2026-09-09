@@ -134,6 +134,19 @@ class SpeechTranscriptionProjectorTest {
         assertViolation(invalidHash);
     }
 
+    @Test
+    void rejectsExplicitUnverifiedProvenanceShapeEvenWhenAllModelFieldsAreNull()
+            throws IOException {
+        ObjectNode unverified = (ObjectNode) fixture();
+        ObjectNode runtime = (ObjectNode) unverified.path("runtime");
+        runtime.putNull("model_repository");
+        runtime.putNull("model_revision");
+        runtime.putNull("model_bin_sha256");
+        runtime.put("model_artifact_verified", false);
+
+        assertViolation(unverified);
+    }
+
     private void assertViolation(JsonNode source) {
         BffContractException error = assertThrows(BffContractException.class,
                 () -> projector.project(source, "REQ-SPEECH-0001", "INC-SPEECH-0001"));

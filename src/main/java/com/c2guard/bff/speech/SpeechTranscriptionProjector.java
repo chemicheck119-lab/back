@@ -157,12 +157,9 @@ class SpeechTranscriptionProjector {
             modelBinSha256 = requireNullableMatchingText(runtime, "model_bin_sha256",
                     64, SHA256_PATTERN);
             modelArtifactVerified = requireBoolean(runtime, "model_artifact_verified");
-            boolean anyModelProvenance = modelRepository != null
-                    || modelRevision != null || modelBinSha256 != null;
             boolean completeModelProvenance = modelRepository != null
                     && modelRevision != null && modelBinSha256 != null;
-            if (anyModelProvenance != completeModelProvenance
-                    || modelArtifactVerified != completeModelProvenance) {
+            if (!completeModelProvenance || !modelArtifactVerified) {
                 throw violation("Speech 모델 artifact 검증 상태와 출처 정보가 일치하지 않습니다.");
             }
         }
