@@ -4064,10 +4064,60 @@
             "minLength": 1,
             "maxLength": 64
           },
+          "serviceGitCommit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "model": {
             "type": "string",
             "minLength": 1,
             "maxLength": 160
+          },
+          "modelRepository": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelRevision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelBinSha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelArtifactVerified": {
+            "type": "boolean",
+            "description": "배포 컨테이너의 model.bin이 고정 manifest와 일치했는지 여부이며 전사 정확도나 현장 안전성 검증을 뜻하지 않습니다."
           },
           "actualDevice": {
             "type": "string",
@@ -4094,7 +4144,12 @@
         },
         "required": [
           "serviceVersion",
+          "serviceGitCommit",
           "model",
+          "modelRepository",
+          "modelRevision",
+          "modelBinSha256",
+          "modelArtifactVerified",
           "actualDevice",
           "actualComputeType",
           "processingSeconds",

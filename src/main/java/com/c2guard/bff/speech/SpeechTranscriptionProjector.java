@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Component
 class SpeechTranscriptionProjector {
@@ -19,6 +20,21 @@ class SpeechTranscriptionProjector {
     private static final int MAX_TRANSCRIPT_CHARACTERS = 20_000;
     private static final int MAX_SEGMENT_CHARACTERS = 2_000;
     private static final int MAX_SEGMENTS = 2_000;
+    private static final Pattern GIT_COMMIT_PATTERN = Pattern.compile("[0-9a-f]{40}");
+    private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern MODEL_REPOSITORY_PATTERN = Pattern.compile(
+            "[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*");
+    private static final Set<String> LEGACY_RUNTIME_FIELDS = Set.of(
+            "implementation", "package_version", "service_version", "model",
+            "requested_device", "requested_compute_type", "actual_device",
+            "actual_compute_type", "initialization_fallback", "hotwords_used",
+            "processing_seconds", "real_time_factor");
+    private static final Set<String> PROVENANCE_RUNTIME_FIELDS = Set.of(
+            "implementation", "package_version", "service_version", "service_git_commit",
+            "model", "model_repository", "model_revision", "model_bin_sha256",
+            "model_artifact_verified", "requested_device", "requested_compute_type",
+            "actual_device", "actual_compute_type", "initialization_fallback",
+            "hotwords_used", "processing_seconds", "real_time_factor");
 
     JsonNode project(JsonNode source, String requestId, String incidentId) {
         requireObject(source, "response");
@@ -116,14 +132,39 @@ class SpeechTranscriptionProjector {
         }
 
         JsonNode runtime = requireObject(source.path("runtime"), "runtime");
-        requireExactFields(runtime, Set.of("implementation", "package_version",
-                "service_version", "model", "requested_device", "requested_compute_type",
-                "actual_device", "actual_compute_type", "initialization_fallback",
-                "hotwords_used", "processing_seconds", "real_time_factor"), "runtime");
+        Set<String> runtimeFields = fieldNames(runtime);
+        if (!runtimeFields.equals(LEGACY_RUNTIME_FIELDS)
+                && !runtimeFields.equals(PROVENANCE_RUNTIME_FIELDS)) {
+            throw violation("Speech runtime 필드 계약이 일치하지 않습니다.");
+        }
         requireTextEquals(runtime, "implementation", "faster-whisper");
         requireTextEquals(runtime, "package_version", "1.2.1");
         if (requireBoolean(runtime, "hotwords_used")) {
             throw violation("기각된 hotword 기본값이 Speech API에 사용됐습니다.");
+        }
+        String serviceGitCommit = null;
+        String modelRepository = null;
+        String modelRevision = null;
+        String modelBinSha256 = null;
+        boolean modelArtifactVerified = false;
+        if (runtimeFields.equals(PROVENANCE_RUNTIME_FIELDS)) {
+            serviceGitCommit = requireNullableMatchingText(runtime, "service_git_commit",
+                    40, GIT_COMMIT_PATTERN);
+            modelRepository = requireNullableMatchingText(runtime, "model_repository",
+                    160, MODEL_REPOSITORY_PATTERN);
+            modelRevision = requireNullableMatchingText(runtime, "model_revision",
+                    40, GIT_COMMIT_PATTERN);
+            modelBinSha256 = requireNullableMatchingText(runtime, "model_bin_sha256",
+                    64, SHA256_PATTERN);
+            modelArtifactVerified = requireBoolean(runtime, "model_artifact_verified");
+            boolean anyModelProvenance = modelRepository != null
+                    || modelRevision != null || modelBinSha256 != null;
+            boolean completeModelProvenance = modelRepository != null
+                    && modelRevision != null && modelBinSha256 != null;
+            if (anyModelProvenance != completeModelProvenance
+                    || modelArtifactVerified != completeModelProvenance) {
+                throw violation("Speech 모델 artifact 검증 상태와 출처 정보가 일치하지 않습니다.");
+            }
         }
 
         JsonNode safety = requireObject(source.path("safety_boundary"), "safety_boundary");
@@ -165,7 +206,12 @@ class SpeechTranscriptionProjector {
         targetInput.put("audioRetained", false);
         ObjectNode targetRuntime = target.putObject("runtime");
         targetRuntime.put("serviceVersion", requireText(runtime, "service_version", 64));
+        putNullable(targetRuntime, "serviceGitCommit", serviceGitCommit);
         targetRuntime.put("model", requireText(runtime, "model", 160));
+        putNullable(targetRuntime, "modelRepository", modelRepository);
+        putNullable(targetRuntime, "modelRevision", modelRevision);
+        putNullable(targetRuntime, "modelBinSha256", modelBinSha256);
+        targetRuntime.put("modelArtifactVerified", modelArtifactVerified);
         targetRuntime.put("actualDevice", requireText(runtime, "actual_device", 32));
         targetRuntime.put("actualComputeType",
                 requireText(runtime, "actual_compute_type", 32));
@@ -185,10 +231,37 @@ class SpeechTranscriptionProjector {
     }
 
     private void requireExactFields(JsonNode node, Set<String> expected, String label) {
-        Set<String> actual = new HashSet<>();
-        node.fieldNames().forEachRemaining(actual::add);
+        Set<String> actual = fieldNames(node);
         if (!actual.equals(expected)) {
             throw violation("Speech " + label + " 필드 계약이 일치하지 않습니다.");
+        }
+    }
+
+    private Set<String> fieldNames(JsonNode node) {
+        Set<String> fields = new HashSet<>();
+        node.fieldNames().forEachRemaining(fields::add);
+        return fields;
+    }
+
+    private String requireNullableMatchingText(JsonNode node, String field, int maxLength,
+                                               Pattern pattern) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isTextual() || value.asText().isBlank()
+                || value.asText().length() > maxLength
+                || !pattern.matcher(value.asText()).matches()) {
+            throw violation("Speech " + field + " 문자열이 올바르지 않습니다.");
+        }
+        return value.asText();
+    }
+
+    private void putNullable(ObjectNode target, String field, String value) {
+        if (value == null) {
+            target.putNull(field);
+        } else {
+            target.put(field, value);
         }
     }
 
