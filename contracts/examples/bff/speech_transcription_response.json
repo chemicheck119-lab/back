@@ -33,7 +33,12 @@
   },
   "runtime": {
     "serviceVersion": "0.1.0",
+    "serviceGitCommit": "7777777777777777777777777777777777777777",
     "model": "faster-whisper-small",
+    "modelRepository": "Systran/faster-whisper-small",
+    "modelRevision": "5555555555555555555555555555555555555555",
+    "modelBinSha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "modelArtifactVerified": true,
     "actualDevice": "cpu",
     "actualComputeType": "int8",
     "processingSeconds": 0.02,

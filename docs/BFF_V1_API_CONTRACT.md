@@ -10,7 +10,7 @@
   `e24fa93d538229844af4377976ee5a180c881fb3`
 - connect timeout: 2초
 - 전체 model response timeout: 15초
-- Speech API schema: `chemicheck119-speech-api-v1`
+- Speech API schema: `chemicheck119-speech-api-v1` (`7e936e2`, model provenance 필드 포함)
 - Speech API connect/response timeout: 2초/45초
 - timeout 응답: HTTP 504, `MODEL_TIMEOUT`, `retryable=true`
 

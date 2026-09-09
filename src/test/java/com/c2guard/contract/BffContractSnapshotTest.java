@@ -110,6 +110,14 @@ class BffContractSnapshotTest {
                 .asBoolean(true));
         assertFalse(safety.path("riskAssessmentPerformed").path("const")
                 .asBoolean(true));
+        JsonNode runtime = bff.path("components").path("schemas")
+                .path("DashboardSpeechRuntime");
+        Set<String> runtimeRequired = jsonTextSet(runtime.path("required"));
+        assertTrue(runtimeRequired.containsAll(Set.of("serviceGitCommit",
+                "modelRepository", "modelRevision", "modelBinSha256",
+                "modelArtifactVerified")));
+        assertEquals("boolean", runtime.path("properties")
+                .path("modelArtifactVerified").path("type").asText());
 
         JsonNode upstream = read(SPEECH_CONTRACT);
         JsonNode transcription = upstream.path("paths")
@@ -124,6 +132,11 @@ class BffContractSnapshotTest {
                 .path("const").asBoolean(true));
         assertFalse(upstreamSafety.path("risk_assessment_performed")
                 .path("const").asBoolean(true));
+        Set<String> upstreamRuntimeRequired = jsonTextSet(upstream.path("components")
+                .path("schemas").path("RuntimeResponse").path("required"));
+        assertTrue(upstreamRuntimeRequired.containsAll(Set.of("service_git_commit",
+                "model_repository", "model_revision", "model_bin_sha256",
+                "model_artifact_verified")));
     }
 
     @Test

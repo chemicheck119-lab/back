@@ -16,11 +16,11 @@
       "scope": "incident agent step and BE-owned external memory contract"
     }
   ],
-  "importedAt": "2026-08-01",
+  "importedAt": "2026-09-09",
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "4f7d145eeb6c3468e09f9efaf3ed70d1250eeda4c6fdcfa7aefb14a934091f41",
+      "sha256": "9fbea6a87cefa7437ab2e13eeb21f7f3aea06d80e95668bf171c94e8682193ce",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
@@ -33,7 +33,8 @@
         "Authenticated incident-scoped transcription proxy accepts bounded WAV and never exposes Speech API credentials to browsers",
         "Transcription output requires responder review and cannot perform chemical identification, CAS confirmation, or risk assessment",
         "Authenticated pre-incident transcription supports voice-first intake without inventing an incident scope",
-        "Authenticated confirmation cancellation requires the exact active role and confirmation ID, preserves a separate audit event, and forces reanalysis"
+        "Authenticated confirmation cancellation requires the exact active role and confirmation ID, preserves a separate audit event, and forces reanalysis",
+        "Speech runtime output exposes validated nullable model provenance and never treats artifact identity as accuracy or safety validation"
       ]
     },
     {
@@ -46,14 +47,16 @@
     },
     {
       "path": "contracts/upstream/speech-api-v1.openapi.json",
-      "sha256": "377939bac7e2dc0e34bc3aa47facb749c61b971a80f70e9fcd28b52bd9e3215b",
+      "sha256": "04df8eb83ef29c6133bd8c6eb5cfbce207500b3bffc3d435e5ad6f65516ec4d6",
       "upstreamPath": "contracts/speech-api.openapi.json",
-      "upstreamSha256": "377939bac7e2dc0e34bc3aa47facb749c61b971a80f70e9fcd28b52bd9e3215b",
+      "upstreamSha256": "04df8eb83ef29c6133bd8c6eb5cfbce207500b3bffc3d435e5ad6f65516ec4d6",
       "sourceRepository": "chemicheck119-lab/speech-service",
-      "sourceCommit": "dab9f993c1f20157e8b6a379bf7df93b2e4ee145",
+      "sourceCommit": "7e936e25d0b3ea7c50a1390029d39b9649cc9fb3",
       "localDecisions": [
         "BE validates the upstream schema, request ID, exact fields, and safety boundary before projection",
-        "BE does not automatically retry transcription requests"
+        "BE does not automatically retry transcription requests",
+        "BE accepts the complete provenance field set or the deployed legacy field set during rolling migration; legacy output is explicitly unverified",
+        "BE rejects partial, malformed, or internally inconsistent model provenance"
       ]
     },
     {

@@ -34,6 +34,15 @@ class SpeechTranscriptionProjectorTest {
         assertTrue(projected.path("requiresResponderReview").asBoolean());
         assertFalse(projected.path("input").path("audioRetained").asBoolean(true));
         assertFalse(projected.path("runtime").path("hotwordsUsed").asBoolean(true));
+        assertEquals("7".repeat(40),
+                projected.path("runtime").path("serviceGitCommit").asText());
+        assertEquals("Systran/faster-whisper-small",
+                projected.path("runtime").path("modelRepository").asText());
+        assertEquals("5".repeat(40),
+                projected.path("runtime").path("modelRevision").asText());
+        assertEquals("6".repeat(64),
+                projected.path("runtime").path("modelBinSha256").asText());
+        assertTrue(projected.path("runtime").path("modelArtifactVerified").asBoolean());
         assertFalse(projected.path("safetyBoundary")
                 .path("casConfirmationPerformed").asBoolean(true));
         assertFalse(projected.path("safetyBoundary")
@@ -81,6 +90,61 @@ class SpeechTranscriptionProjectorTest {
         assertTrue(projected.has("incidentId"));
         assertTrue(projected.path("incidentId").isNull());
         assertTrue(projected.path("requiresResponderReview").asBoolean());
+    }
+
+    @Test
+    void acceptsLegacyRuntimeDuringDeploymentTransitionButMarksItUnverified()
+            throws IOException {
+        ObjectNode legacy = (ObjectNode) fixture();
+        ObjectNode runtime = (ObjectNode) legacy.path("runtime");
+        runtime.remove("service_git_commit");
+        runtime.remove("model_repository");
+        runtime.remove("model_revision");
+        runtime.remove("model_bin_sha256");
+        runtime.remove("model_artifact_verified");
+
+        JsonNode projected = projector.project(legacy, "REQ-SPEECH-0001",
+                "INC-SPEECH-0001");
+
+        assertTrue(projected.path("runtime").path("serviceGitCommit").isNull());
+        assertTrue(projected.path("runtime").path("modelRepository").isNull());
+        assertTrue(projected.path("runtime").path("modelRevision").isNull());
+        assertTrue(projected.path("runtime").path("modelBinSha256").isNull());
+        assertFalse(projected.path("runtime").path("modelArtifactVerified").asBoolean(true));
+    }
+
+    @Test
+    void rejectsPartialOrInconsistentModelProvenance() throws IOException {
+        ObjectNode partial = (ObjectNode) fixture();
+        ((ObjectNode) partial.path("runtime")).remove("model_bin_sha256");
+        assertViolation(partial);
+
+        ObjectNode partialUnverified = (ObjectNode) fixture();
+        ((ObjectNode) partialUnverified.path("runtime")).putNull("model_bin_sha256");
+        ((ObjectNode) partialUnverified.path("runtime"))
+                .put("model_artifact_verified", false);
+        assertViolation(partialUnverified);
+
+        ObjectNode unverified = (ObjectNode) fixture();
+        ((ObjectNode) unverified.path("runtime")).put("model_artifact_verified", false);
+        assertViolation(unverified);
+
+        ObjectNode invalidHash = (ObjectNode) fixture();
+        ((ObjectNode) invalidHash.path("runtime")).put("model_bin_sha256", "not-a-sha256");
+        assertViolation(invalidHash);
+    }
+
+    @Test
+    void rejectsExplicitUnverifiedProvenanceShapeEvenWhenAllModelFieldsAreNull()
+            throws IOException {
+        ObjectNode unverified = (ObjectNode) fixture();
+        ObjectNode runtime = (ObjectNode) unverified.path("runtime");
+        runtime.putNull("model_repository");
+        runtime.putNull("model_revision");
+        runtime.putNull("model_bin_sha256");
+        runtime.put("model_artifact_verified", false);
+
+        assertViolation(unverified);
     }
 
     private void assertViolation(JsonNode source) {

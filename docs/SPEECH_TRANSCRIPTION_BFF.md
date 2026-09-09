@@ -31,6 +31,14 @@ BE는 원본 음성과 전사문을 DB·파일·로그에 저장하지 않습니
 않은 응답 필드, schema/request ID drift, hotword 사용, CAS·위험 판단 수행 표시가 있으면
 BE는 422로 fail closed합니다.
 
+Speech API의 모델 출처 필드는 BFF에서 형식과 일관성을 검사한 뒤 `runtime`의
+`serviceGitCommit`, `modelRepository`, `modelRevision`, `modelBinSha256`,
+`modelArtifactVerified`로 전달합니다. `modelArtifactVerified=true`는 컨테이너의 실제
+`model.bin`과 고정 manifest가 일치했다는 뜻일 뿐 전사 정확도나 현장 안전성을 검증했다는
+뜻이 아닙니다. 현재 배포된 legacy Speech revision과의 순차 배포를 위해 출처 필드가 전부
+없는 응답은 임시로 허용하되 BFF가 nullable 값과 `modelArtifactVerified=false`로 명시합니다.
+출처 필드 일부만 있거나 검증 상태와 repository·revision·hash가 모순되면 422로 차단합니다.
+
 접수 전 경로는 유효한 로그인 세션만 검사하고 응답 `incidentId=null`을 반환합니다. FE는
 검토한 전사문을 별도의 사고 분석 요청에 넣고, 사고 ID는 BE 분석 경로가 발급하게 해야 합니다.
 접수 전 임의 ID를 만들어 incident scope 검증을 우회하지 않습니다. 사고 생성 후 경로는 기존처럼
