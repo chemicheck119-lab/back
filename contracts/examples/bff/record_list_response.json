@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "requestId": "REQ-RECORDS-LIST-EXAMPLE",
+  "records": [
+    {
+      "recordId": "REC-20260916-0001",
+      "incidentId": "INC-20260916-0001",
+      "facilityName": "울산 화학공장",
+      "incidentSubstanceName": "차아염소산나트륨",
+      "briefApplicationStatus": "APPLIED",
+      "finalResponseOutcome": "SPREAD_CONTAINED",
+      "savedAt": "2026-09-16T21:08:00Z"
+    },
+    {
+      "recordId": "REC-20260916-0002",
+      "incidentId": "INC-20260916-0002",
+      "facilityName": "울산 △△산업",
+      "incidentSubstanceName": "염산",
+      "briefApplicationStatus": "REVIEWED_NOT_APPLIED",
+      "finalResponseOutcome": "MONITORING_CONTINUES",
+      "savedAt": "2026-09-16T18:42:00Z"
+    }
+  ]
+}
