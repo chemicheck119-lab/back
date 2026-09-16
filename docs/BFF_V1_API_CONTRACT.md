@@ -30,6 +30,15 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 | 이동갱신 | `POST /api/c2guard/v1/incidents/{incidentId}/movement` | BE 위치·길찾기 provider | 200 |
 | 사고 후 음성전사 | `POST /api/c2guard/v1/incidents/{incidentId}/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
 | 기록저장 | `POST /api/c2guard/v1/incidents/{incidentId}/record` | BE 영구 저장소 | 201 |
+| 기록목록 | `GET /api/c2guard/v1/records` | BE 영구 저장소 | 200 |
+| 기록상세 | `GET /api/c2guard/v1/records/{recordId}` | BE 영구 저장소 | 200 |
+
+기록목록/기록상세는 `POST .../record`가 저장한 `response_records`·`incident_response_summaries`
+계열 테이블을 읽기만 한다. 목록은 저장 시점 소속(organizationId) 범위로 제한하고, 상세는
+반환된 `incidentId`로 `IncidentAccessPolicy`를 다시 확인한 뒤에만 대화·구조화 결과를 내려준다.
+저장 당시 같은 소속이었다는 사실만으로 상세 열람까지 허용하지 않는다. 두 경로 모두
+`/api/c2guard/v1/incidents/*/**`에 걸리지 않으므로 `IncidentPathAuthorizationManager`가 아니라
+`/api/**` 공통 규칙(인증 필요)이 적용된다.
 
 기계 판독 계약은 `contracts/dashboard-bff-v1.openapi.json`입니다. 요청·응답 예시는
 `contracts/examples/bff`에서 관리합니다.

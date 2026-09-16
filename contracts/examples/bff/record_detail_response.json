@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "chemicheck119-dashboard-bff-v1",
+  "requestId": "REQ-RECORDS-DETAIL-EXAMPLE",
+  "recordId": "REC-20260916-0001",
+  "incidentId": "INC-20260916-0001",
+  "conversationStartedAt": "2026-09-16T21:00:00Z",
+  "savedAt": "2026-09-16T21:08:00Z",
+  "facilityName": "울산 화학공장",
+  "facilityAddress": "울산광역시 남구 산업로 119",
+  "incidentSubstanceName": "차아염소산나트륨",
+  "incidentSubstanceCas": "7681-52-9",
+  "briefApplicationStatus": "APPLIED",
+  "performedActions": ["ZONE_CONTROL", "LEAK_SOURCE_CONTROL"],
+  "additionalFactors": ["ENCLOSED_SPACE"],
+  "finalResponseOutcome": "SPREAD_CONTAINED",
+  "conflictRisk": {
+    "analysisId": "ANL-20260916-0001",
+    "incidentCas": "7681-52-9",
+    "facilitySubstanceName": "염산",
+    "facilitySubstanceCas": "7647-01-0",
+    "ruleId": "CAMEO-REACTIVE-GROUP-COMPATIBILITY-MATRIX",
+    "ruleVersion": "RUNTIME-MANIFEST-1",
+    "severity": "HIGH_RISK",
+    "riskLevel": "HIGH",
+    "riskLevelKo": "높음",
+    "briefText": "산성 물질과 접촉하면 독성 염소가스가 발생할 수 있습니다.",
+    "expertReviewed": false,
+    "humanConfirmationRequired": true,
+    "hazardCodes": ["C", "T"],
+    "gasProducts": ["Cl2"]
+  },
+  "messages": [
+    {
+      "messageId": "MSG-0001",
+      "sequence": 1,
+      "role": "USER",
+      "text": "차아염소산나트륨 저장탱크 누출",
+      "createdAt": "2026-09-16T21:00:00Z",
+      "analysisId": null
+    },
+    {
+      "messageId": "MSG-0002",
+      "sequence": 2,
+      "role": "ASSISTANT",
+      "text": "현장 확인이 필요합니다.",
+      "createdAt": "2026-09-16T21:00:02Z",
+      "analysisId": "ANL-20260916-0001"
+    }
+  ]
+}
