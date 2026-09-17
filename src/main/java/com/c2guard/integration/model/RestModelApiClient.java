@@ -27,6 +27,7 @@ final class RestModelApiClient implements ModelApiClient {
     static final String API_KEY_HEADER = "X-API-Key";
     static final String REQUEST_ID_HEADER = "X-Request-Id";
     static final String INCIDENT_AGENT_SCHEMA = "chemicheck119-incident-agent-v1";
+    static final String ACTION_BRIEF_SCHEMA = "action-brief-v1";
 
     private static final Logger log = LoggerFactory.getLogger(RestModelApiClient.class);
     private static final int RETRY_JITTER_MIN_MILLIS = 50;
@@ -115,6 +116,12 @@ final class RestModelApiClient implements ModelApiClient {
     public ModelApiResponse stepIncidentAgent(JsonNode request, String requestId) {
         return post("/api/v1/agents/incidents/step", request, requestId,
                 INCIDENT_AGENT_SCHEMA);
+    }
+
+    @Override
+    public ModelApiResponse briefIncident(JsonNode request, String requestId) {
+        return post("/api/v1/agents/incidents/brief", request, requestId,
+                ACTION_BRIEF_SCHEMA);
     }
 
     private ModelApiResponse get(String path, String requestId) {
