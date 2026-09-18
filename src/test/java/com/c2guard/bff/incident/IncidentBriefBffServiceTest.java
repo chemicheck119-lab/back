@@ -13,6 +13,7 @@ import com.c2guard.security.BffUserPrincipal;
 import com.c2guard.security.IncidentAccessPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -46,7 +47,8 @@ class IncidentBriefBffServiceTest {
             new IncidentBriefRequestMapper(objectMapper),
             new IncidentBriefRevisionStore(),
             confirmationStore,
-            incidentAccessPolicy);
+            incidentAccessPolicy,
+            new IncidentBriefResponseValidator());
 
     private final BffUserPrincipal principal = new BffUserPrincipal("responder-1",
             "fire-station-119", Set.of(BffRole.RESPONDER), Set.of("*"), "session-1",
@@ -60,8 +62,7 @@ class IncidentBriefBffServiceTest {
     @Test
     void wrapsAnalysisAndAssignsIncrementingRevisionPerIncident() {
         when(modelApiClient.briefIncident(any(), eq(REQUEST_ID)))
-                .thenReturn(new ModelApiResponse(REQUEST_ID,
-                        objectMapper.createObjectNode().put("schema_version", "action-brief-v1")));
+                .thenReturn(new ModelApiResponse(REQUEST_ID, validBriefResponse(REQUEST_ID)));
         IncidentAnalyzeRequest request = new IncidentAnalyzeRequest("INC-BRIEF-1",
                 "차아염소산나트륨 탱크에서 누출이 있습니다.", null, null, null, null, null, null);
 
@@ -82,8 +83,10 @@ class IncidentBriefBffServiceTest {
 
     @Test
     void throwsContractViolationWhenModelEchoesADifferentRequestId() {
+        ObjectNode mismatched = validBriefResponse(REQUEST_ID);
+        mismatched.put("request_id", "REQ-OTHER");
         when(modelApiClient.briefIncident(any(), eq(REQUEST_ID)))
-                .thenReturn(new ModelApiResponse("REQ-OTHER", objectMapper.createObjectNode()));
+                .thenReturn(new ModelApiResponse(REQUEST_ID, mismatched));
         IncidentAnalyzeRequest request = new IncidentAnalyzeRequest("INC-BRIEF-2",
                 "염산 누출이 있습니다.", null, null, null, null, null, null);
 
@@ -119,8 +122,7 @@ class IncidentBriefBffServiceTest {
         when(confirmationStore.findActiveForIncident(any()))
                 .thenReturn(confirmedPair(), changedPair);
         when(modelApiClient.briefIncident(any(), eq(REQUEST_ID)))
-                .thenReturn(new ModelApiResponse(REQUEST_ID,
-                        objectMapper.createObjectNode().put("schema_version", "action-brief-v1")));
+                .thenReturn(new ModelApiResponse(REQUEST_ID, validBriefResponse(REQUEST_ID)));
         IncidentAnalyzeRequest request = new IncidentAnalyzeRequest("INC-BRIEF-4",
                 "confirmation 변경 경쟁 조건", null, null, null, null, null, null);
 
@@ -129,6 +131,22 @@ class IncidentBriefBffServiceTest {
                         REQUEST_ID, principal));
 
         assertEquals("INCIDENT_REFERENCE_CONFLICT", error.getCode());
+    }
+
+    private ObjectNode validBriefResponse(String requestId) {
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("schema_version", "action-brief-v1");
+        response.put("request_id", requestId);
+        response.put("phase", "final");
+        response.put("status", "NEEDS_CONFIRMATION");
+        ObjectNode confirmationState = response.putObject("confirmation_state");
+        confirmationState.put("INCIDENT", true);
+        confirmationState.put("FACILITY", true);
+        ObjectNode ruleReview = response.putObject("rule_review");
+        ruleReview.put("executed", false);
+        response.putArray("cards");
+        response.putArray("sources");
+        return response;
     }
 
     private Map<ConfirmationRole, SubstanceConfirmation> confirmedPair() {

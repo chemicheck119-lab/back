@@ -59,8 +59,16 @@ class IncidentBriefControllerTest {
 
         ObjectNode modelResponse = objectMapper.createObjectNode();
         modelResponse.put("schema_version", "action-brief-v1");
+        modelResponse.put("request_id", requestId);
         modelResponse.put("phase", "final");
         modelResponse.put("status", "NEEDS_CONFIRMATION");
+        ObjectNode confirmationState = modelResponse.putObject("confirmation_state");
+        confirmationState.put("INCIDENT", true);
+        confirmationState.put("FACILITY", true);
+        ObjectNode ruleReview = modelResponse.putObject("rule_review");
+        ruleReview.put("executed", false);
+        modelResponse.putArray("cards");
+        modelResponse.putArray("sources");
         when(modelApiClient.briefIncident(any(JsonNode.class), eq(requestId)))
                 .thenReturn(new ModelApiResponse(requestId, modelResponse));
 
