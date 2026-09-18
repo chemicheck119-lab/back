@@ -1,6 +1,7 @@
 package com.c2guard.bff.incident;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -46,32 +47,48 @@ class IncidentBriefRevisionStore {
     }
 
     private long nextRevisionDatabase(String incidentId) {
-        Long revision = transactionTemplate.execute(status -> {
-            List<Long> currentRows = jdbcTemplate.query("""
-                            SELECT revision FROM incident_brief_revisions
-                            WHERE incident_id = ?
-                            FOR UPDATE
-                            """, (resultSet, rowNumber) -> resultSet.getLong("revision"),
-                    incidentId);
-            OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-            if (currentRows.isEmpty()) {
-                jdbcTemplate.update("""
-                                INSERT INTO incident_brief_revisions (incident_id, revision, updated_at)
-                                VALUES (?, 1, ?)
-                                """, incidentId, now);
-                return 1L;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                Long revision = transactionTemplate.execute(status ->
+                        selectForUpdateThenUpsert(incidentId));
+                if (revision == null) {
+                    throw new IllegalStateException(
+                            "incident brief revision transaction returned no value");
+                }
+                return revision;
+            } catch (DataIntegrityViolationException concurrentFirstInsert) {
+                if (attempt == 2) {
+                    throw concurrentFirstInsert;
+                }
+                // 같은 사고의 첫 revision을 다른 트랜잭션이 방금 먼저 만들었다.
+                // FOR UPDATE로 잠글 행이 없던 시점에 둘 다 INSERT를 시도해 발생하는
+                // 경합이므로, 트랜잭션을 한 번 더 돌려 이번엔 그 행을 잠그고 UPDATE한다.
             }
-            long next = currentRows.get(0) + 1;
-            jdbcTemplate.update("""
-                            UPDATE incident_brief_revisions
-                            SET revision = ?, updated_at = ?
-                            WHERE incident_id = ?
-                            """, next, now, incidentId);
-            return next;
-        });
-        if (revision == null) {
-            throw new IllegalStateException("incident brief revision transaction returned no value");
         }
-        return revision;
+        throw new IllegalStateException("unreachable");
+    }
+
+    private long selectForUpdateThenUpsert(String incidentId) {
+        List<Long> currentRows = jdbcTemplate.query("""
+                        SELECT revision FROM incident_brief_revisions
+                        WHERE incident_id = ?
+                        FOR UPDATE
+                        """, (resultSet, rowNumber) -> resultSet.getLong("revision"),
+                incidentId);
+        OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        if (currentRows.isEmpty()) {
+            jdbcTemplate.update("""
+                            INSERT INTO incident_brief_revisions (incident_id, revision, updated_at)
+                            VALUES (?, 1, ?)
+                            """, incidentId, now);
+            return 1L;
+        }
+        long next = currentRows.get(0) + 1;
+        jdbcTemplate.update("""
+                        UPDATE incident_brief_revisions
+                        SET revision = ?, updated_at = ?
+                        WHERE incident_id = ?
+                        """, next, now, incidentId);
+        return next;
     }
 }
