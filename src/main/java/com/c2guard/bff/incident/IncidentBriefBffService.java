@@ -35,19 +35,22 @@ public class IncidentBriefBffService {
     private final IncidentBriefRevisionStore revisionStore;
     private final ConfirmationStore confirmationStore;
     private final IncidentAccessPolicy incidentAccessPolicy;
+    private final IncidentBriefResponseValidator responseValidator;
 
     public IncidentBriefBffService(ModelApiClient modelApiClient,
                                    IncidentAnalysisRequestMapper analysisRequestMapper,
                                    IncidentBriefRequestMapper briefRequestMapper,
                                    IncidentBriefRevisionStore revisionStore,
                                    ConfirmationStore confirmationStore,
-                                   IncidentAccessPolicy incidentAccessPolicy) {
+                                   IncidentAccessPolicy incidentAccessPolicy,
+                                   IncidentBriefResponseValidator responseValidator) {
         this.modelApiClient = modelApiClient;
         this.analysisRequestMapper = analysisRequestMapper;
         this.briefRequestMapper = briefRequestMapper;
         this.revisionStore = revisionStore;
         this.confirmationStore = confirmationStore;
         this.incidentAccessPolicy = incidentAccessPolicy;
+        this.responseValidator = responseValidator;
     }
 
     public JsonNode brief(IncidentBriefCommand command, String requestId,
@@ -66,12 +69,9 @@ public class IncidentBriefBffService {
                 command.invalidatedConfirmationIds(), command.reportedEvidenceConflict());
 
         ModelApiResponse response = modelApiClient.briefIncident(briefRequest, requestId);
-        if (!requestId.equals(response.requestId())) {
-            throw new BffContractException(422, "MODEL_CONTRACT_VIOLATION",
-                    "Model API client의 request ID가 인입 요청과 다릅니다.", false);
-        }
+        JsonNode validated = responseValidator.validate(response.body(), requestId);
         ensureConfirmationStateUnchanged(prepared.incidentId(), activeConfirmations);
-        return response.body();
+        return validated;
     }
 
     private void requireConfirmedCasPair(
