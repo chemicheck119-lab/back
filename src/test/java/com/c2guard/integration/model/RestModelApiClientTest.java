@@ -57,12 +57,14 @@ class RestModelApiClientTest {
 
     @Test
     void exposesEveryModelApiPathWithCorrectAuthenticationBoundary() throws InterruptedException {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             String body = "{}";
             if (i == 4 || i == 8) {
                 body = "{\"schema_version\":\"chemiguard119-api-v1\"}";
             } else if (i == 9) {
                 body = "{\"schema_version\":\"chemicheck119-incident-agent-v1\"}";
+            } else if (i == 10) {
+                body = "{\"schema_version\":\"action-brief-v1\"}";
             }
             server.enqueue(okJson(body));
         }
@@ -78,6 +80,7 @@ class RestModelApiClientTest {
         client.reviewConflicts(request, REQUEST_ID);
         client.analyzeIncident(request, REQUEST_ID);
         client.stepIncidentAgent(request, REQUEST_ID);
+        client.briefIncident(request, REQUEST_ID);
 
         List<String> expectedPaths = List.of(
                 "/health/live",
@@ -89,7 +92,8 @@ class RestModelApiClientTest {
                 "/api/v1/facilities/candidates",
                 "/api/v1/conflicts/review",
                 "/api/v1/incidents/analyze",
-                "/api/v1/agents/incidents/step"
+                "/api/v1/agents/incidents/step",
+                "/api/v1/agents/incidents/brief"
         );
         for (int i = 0; i < expectedPaths.size(); i++) {
             RecordedRequest recorded = server.takeRequest();
@@ -277,6 +281,19 @@ class RestModelApiClientTest {
 
         ModelApiException error = assertThrows(ModelApiException.class,
                 () -> client.stepIncidentAgent(query(), REQUEST_ID));
+
+        assertEquals(ModelApiErrorKind.CONTRACT, error.getKind());
+        assertEquals("MODEL_SCHEMA_MISMATCH", error.getCode());
+        assertFalse(error.isRetryable());
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    void briefIncidentUsesItsDedicatedActionBriefSchema() {
+        server.enqueue(okJson("{\"schema_version\":\"chemiguard119-api-v1\"}"));
+
+        ModelApiException error = assertThrows(ModelApiException.class,
+                () -> client.briefIncident(query(), REQUEST_ID));
 
         assertEquals(ModelApiErrorKind.CONTRACT, error.getKind());
         assertEquals("MODEL_SCHEMA_MISMATCH", error.getCode());

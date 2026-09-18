@@ -56,10 +56,12 @@ public class BffSecurityConfiguration {
                     if (properties.isPublicAnalysisEnabled()) {
                         authorize.requestMatchers(HttpMethod.POST,
                                 "/api/c2guard/v1/incidents/analyze",
+                                "/api/c2guard/v1/incidents/brief",
                                 "/api/c2guard/v1/substances/discover").permitAll();
                     } else {
                         authorize.requestMatchers(HttpMethod.POST,
                                 "/api/c2guard/v1/incidents/analyze",
+                                "/api/c2guard/v1/incidents/brief",
                                 "/api/c2guard/v1/substances/discover").authenticated();
                     }
                     if (replayProperties.isEnabled()
