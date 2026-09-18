@@ -2,6 +2,7 @@ package com.c2guard.security;
 
 import com.c2guard.bff.common.BffRequestIdFilter;
 import com.c2guard.bff.intake.IncidentReplayProperties;
+import com.c2guard.bff.phone.PhoneIngressProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +21,7 @@ import java.time.Clock;
 import java.util.List;
 
 @Configuration
-@EnableConfigurationProperties(BffSecurityProperties.class)
+@EnableConfigurationProperties({BffSecurityProperties.class, PhoneIngressProperties.class})
 public class BffSecurityConfiguration {
 
     @Bean
@@ -74,6 +75,8 @@ public class BffSecurityConfiguration {
                                     .permitAll();
                         }
                     }
+                    authorize.requestMatchers(HttpMethod.POST,
+                            "/api/c2guard/v1/incidents/*/phone-transcripts").permitAll();
                     authorize
                             .requestMatchers("/api/c2guard/v1/incidents/*/**")
                             .access(incidentAuthorization)
