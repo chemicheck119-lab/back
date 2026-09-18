@@ -2,9 +2,11 @@ package com.c2guard.bff.incident;
 
 import com.c2guard.bff.common.BffContractException;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+@Component
 final class IncidentBriefResponseValidator {
 
     JsonNode validate(JsonNode body, String requestId, String incidentId, long revision) {
