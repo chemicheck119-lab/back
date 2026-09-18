@@ -46,7 +46,8 @@ class IncidentBriefBffServiceTest {
             new IncidentBriefRequestMapper(objectMapper),
             new IncidentBriefRevisionStore(),
             confirmationStore,
-            incidentAccessPolicy);
+            incidentAccessPolicy,
+            new IncidentBriefResponseValidator());
 
     private final BffUserPrincipal principal = new BffUserPrincipal("responder-1",
             "fire-station-119", Set.of(BffRole.RESPONDER), Set.of("*"), "session-1",
@@ -60,8 +61,12 @@ class IncidentBriefBffServiceTest {
     @Test
     void wrapsAnalysisAndAssignsIncrementingRevisionPerIncident() {
         when(modelApiClient.briefIncident(any(), eq(REQUEST_ID)))
-                .thenReturn(new ModelApiResponse(REQUEST_ID,
-                        objectMapper.createObjectNode().put("schema_version", "action-brief-v1")));
+                .thenAnswer(invocation -> {
+                    JsonNode request = invocation.getArgument(0);
+                    return new ModelApiResponse(REQUEST_ID, validBriefResponse(
+                            request.path("revision").asLong(),
+                            request.path("analysis").path("incident_id").asText()));
+                });
         IncidentAnalyzeRequest request = new IncidentAnalyzeRequest("INC-BRIEF-1",
                 "차아염소산나트륨 탱크에서 누출이 있습니다.", null, null, null, null, null, null);
 
@@ -148,4 +153,24 @@ class IncidentBriefBffServiceTest {
                 "responder-1", "station-1", Instant.parse("2026-01-15T05:30:00Z"),
                 "REQ-CONFIRM", 1, ConfirmationStatus.ACTIVE, null, null);
     }
+
+        private JsonNode validBriefResponse(long revision, String incidentId) {
+                var response = objectMapper.createObjectNode();
+                response.put("schema_version", "action-brief-v1");
+                response.put("request_id", REQUEST_ID);
+                response.put("incident_id", incidentId);
+                response.put("revision", revision);
+                response.put("state_fingerprint", "fingerprint");
+                response.put("phase", "final");
+                response.put("status", "COMPLETED");
+                response.put("summary", "검토용 행동 카드");
+                response.putArray("cards");
+                response.putArray("missing_information");
+                response.putArray("sources");
+                var confirmationState = response.putObject("confirmation_state");
+                confirmationState.put("INCIDENT", true);
+                confirmationState.put("FACILITY", true);
+                response.putObject("versions");
+                return response;
+        }
 }
