@@ -8,7 +8,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,27 +46,15 @@ class IncidentBriefRevisionStore {
 
     private long nextRevisionDatabase(String incidentId) {
         Long revision = transactionTemplate.execute(status -> {
-            List<Long> currentRows = jdbcTemplate.query("""
-                            SELECT revision FROM incident_brief_revisions
-                            WHERE incident_id = ?
-                            FOR UPDATE
-                            """, (resultSet, rowNumber) -> resultSet.getLong("revision"),
-                    incidentId);
             OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-            if (currentRows.isEmpty()) {
-                jdbcTemplate.update("""
-                                INSERT INTO incident_brief_revisions (incident_id, revision, updated_at)
-                                VALUES (?, 1, ?)
-                                """, incidentId, now);
-                return 1L;
-            }
-            long next = currentRows.get(0) + 1;
-            jdbcTemplate.update("""
-                            UPDATE incident_brief_revisions
-                            SET revision = ?, updated_at = ?
-                            WHERE incident_id = ?
-                            """, next, now, incidentId);
-            return next;
+            return jdbcTemplate.queryForObject("""
+                            INSERT INTO incident_brief_revisions (incident_id, revision, updated_at)
+                            VALUES (?, 1, ?)
+                            ON CONFLICT (incident_id) DO UPDATE
+                            SET revision = incident_brief_revisions.revision + 1,
+                                updated_at = EXCLUDED.updated_at
+                            RETURNING revision
+                            """, Long.class, incidentId, now);
         });
         if (revision == null) {
             throw new IllegalStateException("incident brief revision transaction returned no value");
