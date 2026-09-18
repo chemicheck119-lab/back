@@ -54,6 +54,9 @@ class IncidentBriefControllerTest {
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.set("analysis", analysis);
 
+        confirmSubstance("INCIDENT", "7681-52-9", "차아염소산나트륨");
+        confirmSubstance("FACILITY", "7647-01-0", "염산");
+
         ObjectNode modelResponse = objectMapper.createObjectNode();
         modelResponse.put("schema_version", "action-brief-v1");
         modelResponse.put("phase", "final");
@@ -99,5 +102,22 @@ class IncidentBriefControllerTest {
                 .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
 
         verifyNoInteractions(modelApiClient);
+    }
+
+    private void confirmSubstance(String role, String casNumber, String displayName)
+            throws Exception {
+        ObjectNode confirmation = objectMapper.createObjectNode();
+        confirmation.put("role", role);
+        confirmation.put("casNumber", casNumber);
+        confirmation.put("displayName", displayName);
+        confirmation.put("confirmationBasis", "CONTAINER_LABEL");
+        confirmation.put("observedAt", "2026-07-31T14:25:00+09:00");
+
+        mockMvc.perform(post("/api/c2guard/v1/incidents/INC-EXAMPLE-0001/confirmations")
+                        .cookie(responder(tokenService, "INC-EXAMPLE-0001"))
+                        .header("X-Request-Id", "REQ-CONFIRM-" + role)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(confirmation.toString()))
+                .andExpect(status().isCreated());
     }
 }
