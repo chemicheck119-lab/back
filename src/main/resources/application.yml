@@ -91,6 +91,10 @@ chemicheck119:
     timeout: ${CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT:10s}
     synthetic-incident-ttl: ${CHEMICHECK119_SYNTHETIC_INCIDENT_TTL:30m}
     max-active-synthetic-incidents: ${CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS:100}
+  phone-ingress:
+    enabled: ${CHEMICHECK119_PHONE_INGRESS_ENABLED:false}
+    token: ${CHEMICHECK119_PHONE_INGRESS_TOKEN:}
+    max-text-length: ${CHEMICHECK119_PHONE_INGRESS_MAX_TEXT_LENGTH:4000}
   persistence:
     require-external-database: ${CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE:false}
   demo-logs:
