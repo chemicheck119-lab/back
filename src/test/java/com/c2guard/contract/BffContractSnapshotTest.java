@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,24 +34,32 @@ class BffContractSnapshotTest {
             Path.of("contracts/incident-intake-replay-v1.openapi.json");
     private static final Path SYNTHETIC_DEMO_LOG_CONTRACT =
             Path.of("contracts/synthetic-demo-logs-v1.openapi.json");
+    private static final String PHONE_INGRESS_PATH =
+            "/api/c2guard/v1/incidents/{incidentId}/phone-transcripts";
 
     @Test
     void bffContractPublishesAuthenticatedBackendOwnedRoutes() throws IOException {
         JsonNode contract = read(BFF_CONTRACT);
         JsonNode paths = contract.path("paths");
 
-        Map<String, String> expected = Map.of(
-                "/api/c2guard/v1/session", "get",
-                "/api/c2guard/v1/logout", "post",
-                "/api/c2guard/v1/transcriptions", "post",
-                "/api/c2guard/v1/incidents/analyze", "post",
-                "/api/c2guard/v1/substances/discover", "post",
-                "/api/c2guard/v1/incidents/{incidentId}/confirmations", "post",
-                "/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}", "delete",
-                "/api/c2guard/v1/incidents/{incidentId}/movement", "post",
-                "/api/c2guard/v1/incidents/{incidentId}/record", "post",
-                "/api/c2guard/v1/incidents/{incidentId}/transcriptions", "post");
-        assertEquals(expected.keySet(), fieldNames(paths));
+        Map<String, String> expected = Map.ofEntries(
+                Map.entry("/api/c2guard/v1/session", "get"),
+                Map.entry("/api/c2guard/v1/logout", "post"),
+                Map.entry("/api/c2guard/v1/transcriptions", "post"),
+                Map.entry("/api/c2guard/v1/incidents/analyze", "post"),
+                Map.entry("/api/c2guard/v1/incidents/brief", "post"),
+                Map.entry("/api/c2guard/v1/substances/discover", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/confirmations", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/confirmations/{role}/{confirmationId}", "delete"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/movement", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/record", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/transcriptions", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/stream", "get"),
+                Map.entry("/api/c2guard/v1/records", "get"),
+                Map.entry("/api/c2guard/v1/records/{recordId}", "get"));
+        Set<String> published = new LinkedHashSet<>(expected.keySet());
+        published.add(PHONE_INGRESS_PATH);
+        assertEquals(published, fieldNames(paths));
 
         expected.forEach((path, method) -> {
             JsonNode operation = paths.path(path).path(method);
@@ -62,12 +71,108 @@ class BffContractSnapshotTest {
     }
 
     @Test
+    void actionBriefContractRequiresValidatedFieldsAndConfirmationConflictResponses()
+            throws IOException {
+        JsonNode contract = read(BFF_CONTRACT);
+        JsonNode operation = contract.path("paths")
+                .path("/api/c2guard/v1/incidents/brief").path("post");
+        assertEquals("action-brief-v1", operation.path("x-model-api-schema-version").asText());
+        assertEquals("#/components/schemas/DashboardIncidentBriefRequest",
+                operation.path("requestBody").path("content").path("application/json")
+                        .path("schema").path("$ref").asText());
+        assertEquals("#/components/schemas/DashboardActionBriefResponse",
+                operation.path("responses").path("200").path("content")
+                        .path("application/json").path("schema").path("$ref").asText());
+        assertTrue(operation.path("responses").path("409").path("description").asText()
+                .contains("CONFIRMATION_REQUIRED"));
+        assertTrue(operation.path("responses").path("422").path("description").asText()
+                .contains("MODEL_CONTRACT_VIOLATION"));
+
+        JsonNode schemas = contract.path("components").path("schemas");
+        JsonNode request = schemas.path("DashboardIncidentBriefRequest");
+        assertEquals(Set.of("analysis"), jsonTextSet(request.path("required")));
+        assertEquals(2, request.path("properties").path("invalidatedConfirmationIds")
+                .path("maxItems").asInt());
+
+        JsonNode response = schemas.path("DashboardActionBriefResponse");
+        assertTrue(jsonTextSet(response.path("required")).containsAll(Set.of(
+                "schema_version", "request_id", "phase", "status",
+                "confirmation_state", "rule_review")));
+        assertEquals("action-brief-v1",
+                response.path("properties").path("schema_version").path("const").asText());
+        assertEquals(Set.of("initial", "final"),
+                jsonTextSet(response.path("properties").path("phase").path("enum")));
+        assertEquals(Set.of("PENDING", "NEEDS_CONFIRMATION", "COMPLETED", "HELD", "TIMEOUT"),
+                jsonTextSet(response.path("properties").path("status").path("enum")));
+    }
+
+    @Test
+    void recordQueryContractIsReadOnlyAndKeepsConflictRiskOptional() throws IOException {
+        JsonNode contract = read(BFF_CONTRACT);
+        JsonNode paths = contract.path("paths");
+        assertFalse(paths.path("/api/c2guard/v1/records").path("get").isMissingNode());
+        assertTrue(paths.path("/api/c2guard/v1/records").path("post").isMissingNode());
+        assertTrue(paths.path("/api/c2guard/v1/records/{recordId}").path("get")
+                .path("responses").has("404"));
+
+        JsonNode schemas = contract.path("components").path("schemas");
+        assertEquals("#/components/schemas/DashboardRecordSummary",
+                schemas.path("DashboardRecordListResponse").path("properties")
+                        .path("records").path("items").path("$ref").asText());
+        JsonNode detail = schemas.path("DashboardRecordDetailResponse");
+        assertTrue(detail.path("properties").path("conflictRisk")
+                .path("anyOf").toString().contains("null"));
+        assertEquals("#/components/schemas/DashboardRecordMessage",
+                detail.path("properties").path("messages").path("items").path("$ref").asText());
+
+        JsonNode list = read(Path.of("contracts/examples/bff/record_list_response.json"));
+        Set<String> summaryRequired = jsonTextSet(
+                schemas.path("DashboardRecordSummary").path("required"));
+        list.path("records").forEach(record ->
+                assertTrue(fieldNames(record).containsAll(summaryRequired), record.toString()));
+        JsonNode detailFixture = read(Path.of("contracts/examples/bff/record_detail_response.json"));
+        assertTrue(fieldNames(detailFixture).containsAll(jsonTextSet(detail.path("required"))));
+    }
+
+    @Test
+    void phoneTranscriptIngressIsProviderTokenOnlyAndNeverBrowserCallable() throws IOException {
+        JsonNode contract = read(BFF_CONTRACT);
+        JsonNode ingress = contract.path("paths").path(PHONE_INGRESS_PATH).path("post");
+        assertFalse(ingress.isMissingNode());
+        assertTrue(ingress.path("security").toString().contains("PhoneIngressToken"));
+        assertFalse(ingress.path("security").toString().contains("ServiceSession"));
+        assertFalse(ingress.path("x-browser-call-allowed").asBoolean(true));
+        assertFalse(ingress.path("x-audio-retained").asBoolean(true));
+        for (String status : List.of("400", "401", "404", "413")) {
+            assertTrue(ingress.path("responses").has(status), status);
+        }
+
+        JsonNode scheme = contract.path("components").path("securitySchemes")
+                .path("PhoneIngressToken");
+        assertEquals("apiKey", scheme.path("type").asText());
+        assertEquals("header", scheme.path("in").asText());
+        assertEquals("X-Phone-Ingress-Token", scheme.path("name").asText());
+
+        JsonNode stream = contract.path("paths")
+                .path("/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/stream").path("get");
+        assertTrue(stream.path("responses").path("200").path("content").has("text/event-stream"));
+
+        JsonNode schemas = contract.path("components").path("schemas");
+        assertEquals(Set.of("provider", "callId", "eventId", "occurredAt", "text"),
+                jsonTextSet(schemas.path("DashboardPhoneTranscriptIngressRequest").path("required")));
+        assertEquals(Set.of("PENDING_REVIEW", "INTERIM"),
+                jsonTextSet(schemas.path("DashboardPhoneTranscriptIngressResponse")
+                        .path("properties").path("reviewStatus").path("enum")));
+    }
+
+    @Test
     void aiBackedRoutesUseTwoAndFifteenSecondTimeoutPolicy() throws IOException {
         JsonNode contract = read(BFF_CONTRACT);
 
         assertEquals(2, contract.path("x-model-api-connect-timeout-seconds").asInt());
         assertEquals(15, contract.path("x-model-api-response-timeout-seconds").asInt());
         assertTimeoutResponse(contract, "/api/c2guard/v1/incidents/analyze");
+        assertTimeoutResponse(contract, "/api/c2guard/v1/incidents/brief");
         assertTimeoutResponse(contract, "/api/c2guard/v1/substances/discover");
         assertSpeechTimeoutResponse(contract,
                 "/api/c2guard/v1/incidents/{incidentId}/transcriptions");
