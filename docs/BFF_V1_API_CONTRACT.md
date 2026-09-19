@@ -25,10 +25,13 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 | 로그아웃 | `POST /api/c2guard/v1/logout` | session cookie 만료 | 204 |
 | 접수 전 음성전사 | `POST /api/c2guard/v1/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
 | 사고분석 | `POST /api/c2guard/v1/incidents/analyze` | Model API `/api/v1/incidents/analyze` | 200 |
+| 행동 카드 | `POST /api/c2guard/v1/incidents/brief` | Model API `/api/v1/agents/incidents/brief` (`action-brief-v1`) | 200 |
 | 물질발견 | `POST /api/c2guard/v1/substances/discover` | Model API `/api/v1/substances/discover` | 200 |
 | 현장확인 | `POST /api/c2guard/v1/incidents/{incidentId}/confirmations` | BE 확인 저장소 | 201 |
 | 이동갱신 | `POST /api/c2guard/v1/incidents/{incidentId}/movement` | BE 위치·길찾기 provider | 200 |
 | 사고 후 음성전사 | `POST /api/c2guard/v1/incidents/{incidentId}/transcriptions` | Speech API `/api/v1/transcriptions` | 200 |
+| 전화 전사 수신 | `POST /api/c2guard/v1/incidents/{incidentId}/phone-transcripts` | 전화 provider 토큰 인증, BE 전사 저장소 | 200 |
+| 전화 전사 스트림 | `GET /api/c2guard/v1/incidents/{incidentId}/phone-transcripts/stream` | SSE `phone.transcript` | 200 |
 | 기록저장 | `POST /api/c2guard/v1/incidents/{incidentId}/record` | BE 영구 저장소 | 201 |
 | 기록목록 | `GET /api/c2guard/v1/records` | BE 영구 저장소 | 200 |
 | 기록상세 | `GET /api/c2guard/v1/records/{recordId}` | BE 영구 저장소 | 200 |
@@ -39,6 +42,10 @@ FE는 BE/BFF만 호출합니다. AI API Key와 지도 사업자 Secret은 브라
 저장 당시 같은 소속이었다는 사실만으로 상세 열람까지 허용하지 않는다. 두 경로 모두
 `/api/c2guard/v1/incidents/*/**`에 걸리지 않으므로 `IncidentPathAuthorizationManager`가 아니라
 `/api/**` 공통 규칙(인증 필요)이 적용된다.
+
+전화 전사 수신 경로는 브라우저 세션이 아니라 `X-Phone-Ingress-Token` 헤더(전화 provider 서버 전용)로
+인증하며, `chemicheck119.phone-ingress.enabled=false`이면 404를 반환합니다. 수신한 전사는 담당자 검토 전까지
+안전 판단 근거로 사용하지 않습니다(`reviewStatus`: `PENDING_REVIEW`/`INTERIM`).
 
 기계 판독 계약은 `contracts/dashboard-bff-v1.openapi.json`입니다. 요청·응답 예시는
 `contracts/examples/bff`에서 관리합니다.
