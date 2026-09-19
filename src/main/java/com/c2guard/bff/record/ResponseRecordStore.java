@@ -165,6 +165,138 @@ public class ResponseRecordStore {
         return count == null ? 0 : count;
     }
 
+    /**
+     * "대응 기록" 목록 화면용 요약. 저장 시점 소속(organizationId) 범위로 제한한다.
+     * 사고 단위 접근 권한은 상세 조회({@link #findDetail(String)})에서 다시 확인한다.
+     */
+    public List<RecordSummary> listSummariesForOrganization(String organizationId, int limit) {
+        return jdbcTemplate.query("""
+                        SELECT r.record_id, r.incident_id, r.saved_at,
+                               s.facility_name, s.incident_substance_name,
+                               s.brief_application_status, s.final_response_outcome
+                        FROM response_records r
+                        JOIN incident_response_summaries s ON s.record_id = r.record_id
+                        WHERE r.saved_by_organization_id = ?
+                        ORDER BY r.saved_at DESC
+                        LIMIT ?
+                        """,
+                (resultSet, rowNumber) -> new RecordSummary(
+                        resultSet.getString("record_id"),
+                        resultSet.getString("incident_id"),
+                        resultSet.getString("facility_name"),
+                        resultSet.getString("incident_substance_name"),
+                        resultSet.getString("brief_application_status"),
+                        resultSet.getString("final_response_outcome"),
+                        resultSet.getObject("saved_at", OffsetDateTime.class)),
+                organizationId, limit);
+    }
+
+    /**
+     * "대응 기록" 상세 화면용 전체 정보. 호출자는 반환된 {@code incidentId}로
+     * {@code IncidentAccessPolicy}를 통해 접근 권한을 반드시 다시 확인해야 한다.
+     */
+    public Optional<RecordDetail> findDetail(String recordId) {
+        Optional<StoredResponseRecord> base = findById(recordId);
+        if (base.isEmpty()) {
+            return Optional.empty();
+        }
+        StoredResponseRecord record = base.get();
+        Optional<SummaryRow> summary = findSummaryRow(recordId);
+        List<String> performedActions = jdbcTemplate.query("""
+                        SELECT action_code FROM incident_response_actions
+                        WHERE record_id = ? ORDER BY action_order
+                        """, (resultSet, rowNumber) -> resultSet.getString("action_code"),
+                recordId);
+        List<String> additionalFactors = jdbcTemplate.query("""
+                        SELECT factor_code FROM incident_additional_factors
+                        WHERE record_id = ? ORDER BY factor_order
+                        """, (resultSet, rowNumber) -> resultSet.getString("factor_code"),
+                recordId);
+        List<RecordMessage> messages = jdbcTemplate.query("""
+                        SELECT message_id, message_sequence, message_role, message_text,
+                               created_at, analysis_id
+                        FROM response_record_messages
+                        WHERE record_id = ? ORDER BY message_sequence
+                        """, (resultSet, rowNumber) -> new RecordMessage(
+                        resultSet.getString("message_id"),
+                        resultSet.getInt("message_sequence"),
+                        resultSet.getString("message_role"),
+                        resultSet.getString("message_text"),
+                        resultSet.getObject("created_at", OffsetDateTime.class),
+                        resultSet.getString("analysis_id")), recordId);
+        return Optional.of(new RecordDetail(
+                record.recordId(), record.incidentId(), record.conversationStartedAt(),
+                record.savedAt(),
+                summary.map(SummaryRow::facilityName).orElse(null),
+                summary.map(SummaryRow::facilityAddress).orElse(null),
+                summary.map(SummaryRow::incidentSubstanceName).orElse(null),
+                summary.map(SummaryRow::incidentSubstanceCas).orElse(null),
+                summary.map(SummaryRow::briefApplicationStatus).orElse(null),
+                performedActions, additionalFactors,
+                summary.map(SummaryRow::finalResponseOutcome).orElse(null),
+                findConflictRisk(recordId), messages));
+    }
+
+    private record SummaryRow(
+            String facilityName, String facilityAddress,
+            String incidentSubstanceName, String incidentSubstanceCas,
+            String briefApplicationStatus, String finalResponseOutcome) {
+    }
+
+    private Optional<SummaryRow> findSummaryRow(String recordId) {
+        return jdbcTemplate.query("""
+                        SELECT facility_name, facility_address, incident_substance_name,
+                               incident_substance_cas, brief_application_status,
+                               final_response_outcome
+                        FROM incident_response_summaries WHERE record_id = ?
+                        """, (resultSet, rowNumber) -> new SummaryRow(
+                        resultSet.getString("facility_name"),
+                        resultSet.getString("facility_address"),
+                        resultSet.getString("incident_substance_name"),
+                        resultSet.getString("incident_substance_cas"),
+                        resultSet.getString("brief_application_status"),
+                        resultSet.getString("final_response_outcome")), recordId)
+                .stream().findFirst();
+    }
+
+    private RecordConflictRisk findConflictRisk(String recordId) {
+        return jdbcTemplate.query("""
+                        SELECT analysis_id, incident_cas, facility_substance_name,
+                               facility_substance_cas, rule_id, rule_version, severity,
+                               risk_level, risk_level_ko, brief_text, expert_reviewed,
+                               human_confirmation_required
+                        FROM incident_conflict_risks WHERE record_id = ?
+                        """, (resultSet, rowNumber) -> {
+                    List<String> hazardCodes = jdbcTemplate.query("""
+                                    SELECT hazard_code FROM incident_conflict_hazards
+                                    WHERE record_id = ? ORDER BY hazard_order
+                                    """,
+                            (hazardSet, hazardRow) -> hazardSet.getString("hazard_code"),
+                            recordId);
+                    List<String> gasProducts = jdbcTemplate.query("""
+                                    SELECT gas_product FROM incident_conflict_gas_products
+                                    WHERE record_id = ? ORDER BY product_order
+                                    """,
+                            (gasSet, gasRow) -> gasSet.getString("gas_product"),
+                            recordId);
+                    return new RecordConflictRisk(
+                            resultSet.getString("analysis_id"),
+                            resultSet.getString("incident_cas"),
+                            resultSet.getString("facility_substance_name"),
+                            resultSet.getString("facility_substance_cas"),
+                            resultSet.getString("rule_id"),
+                            resultSet.getString("rule_version"),
+                            resultSet.getString("severity"),
+                            resultSet.getString("risk_level"),
+                            resultSet.getString("risk_level_ko"),
+                            resultSet.getString("brief_text"),
+                            resultSet.getBoolean("expert_reviewed"),
+                            resultSet.getBoolean("human_confirmation_required"),
+                            hazardCodes, gasProducts);
+                }, recordId)
+                .stream().findFirst().orElse(null);
+    }
+
     Optional<StoredResponseRecord> findByFingerprint(String fingerprint) {
         return query("SELECT * FROM response_records WHERE record_fingerprint = ?",
                 fingerprint);

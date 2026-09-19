@@ -141,6 +141,8 @@ FE 요청부터 Model API 호출까지 같은 request ID를 사용합니다. 로
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/movement` | GPS 검증과 도로 경로·ETA 조회 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/transcriptions` | 생성된 사고의 후속 음성을 scope 검증 후 전사 |
 | `POST` | `/api/c2guard/v1/incidents/{incidentId}/record` | 분석·확인·이동 정보를 결합한 대응 기록 저장 |
+| `GET` | `/api/c2guard/v1/records` | 저장된 대응 기록 목록 조회 (소속 범위) |
+| `GET` | `/api/c2guard/v1/records/{recordId}` | 대응 기록 상세(대화·구조화 결과) 조회 |
 | `GET` | `/api/c2guard/v1/intake/replay-stream/{scenarioId}` | 공개 합성 지령 SSE 시연 |
 
 전체 계약은 [`contracts/dashboard-bff-v1.openapi.json`](contracts/dashboard-bff-v1.openapi.json)을
