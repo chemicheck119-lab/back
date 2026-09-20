@@ -46,6 +46,7 @@ class BffContractSnapshotTest {
                 Map.entry("/api/c2guard/v1/session", "get"),
                 Map.entry("/api/c2guard/v1/logout", "post"),
                 Map.entry("/api/c2guard/v1/transcriptions", "post"),
+                Map.entry("/api/c2guard/v1/phone-sessions", "post"),
                 Map.entry("/api/c2guard/v1/incidents/analyze", "post"),
                 Map.entry("/api/c2guard/v1/incidents/brief", "post"),
                 Map.entry("/api/c2guard/v1/substances/discover", "post"),
@@ -54,6 +55,7 @@ class BffContractSnapshotTest {
                 Map.entry("/api/c2guard/v1/incidents/{incidentId}/movement", "post"),
                 Map.entry("/api/c2guard/v1/incidents/{incidentId}/record", "post"),
                 Map.entry("/api/c2guard/v1/incidents/{incidentId}/transcriptions", "post"),
+                Map.entry("/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/{transcriptId}/review", "put"),
                 Map.entry("/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/stream", "get"),
                 Map.entry("/api/c2guard/v1/records", "get"),
                 Map.entry("/api/c2guard/v1/records/{recordId}", "get"));
@@ -160,7 +162,7 @@ class BffContractSnapshotTest {
         JsonNode schemas = contract.path("components").path("schemas");
         assertEquals(Set.of("provider", "callId", "eventId", "occurredAt", "text"),
                 jsonTextSet(schemas.path("DashboardPhoneTranscriptIngressRequest").path("required")));
-        assertEquals(Set.of("PENDING_REVIEW", "INTERIM"),
+        assertEquals(Set.of("INTERIM", "FINAL_PENDING_REVIEW", "REVIEWED", "ANALYZED"),
                 jsonTextSet(schemas.path("DashboardPhoneTranscriptIngressResponse")
                         .path("properties").path("reviewStatus").path("enum")));
     }

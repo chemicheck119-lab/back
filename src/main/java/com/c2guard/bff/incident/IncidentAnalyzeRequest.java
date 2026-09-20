@@ -23,8 +23,18 @@ public record IncidentAnalyzeRequest(
         @Valid IncidentLocation location,
         @Valid OperationsContext operationsContext,
         @Size(max = 20) List<@NotBlank @Size(max = 120) String> plannedActions,
-        @Min(1) @Max(10) Integer evidenceTopK
+        @Min(1) @Max(10) Integer evidenceTopK,
+        @Size(max = 128) String phoneTranscriptId,
+        @Min(0) Long phoneTranscriptRevision
 ) {
+    public IncidentAnalyzeRequest(String incidentId, String text, InputType inputType,
+                                  OffsetDateTime occurredAt, IncidentLocation location,
+                                  OperationsContext operationsContext,
+                                  List<String> plannedActions, Integer evidenceTopK) {
+        this(incidentId, text, inputType, occurredAt, location, operationsContext,
+                plannedActions, evidenceTopK, null, null);
+    }
+
     public IncidentAnalyzeRequest {
         inputType = inputType == null ? InputType.MANUAL_TEXT : inputType;
         plannedActions = plannedActions == null ? List.of() : List.copyOf(plannedActions);
@@ -32,7 +42,18 @@ public record IncidentAnalyzeRequest(
     }
 
     public enum InputType {
-        MANUAL_TEXT, DISPATCH_TEXT, VOICE_TRANSCRIPT, STRUCTURED_FORM
+        MANUAL_TEXT, DISPATCH_TEXT, VOICE_TRANSCRIPT, PHONE_TRANSCRIPT, STRUCTURED_FORM
+    }
+
+    @AssertTrue(message = "PHONE_TRANSCRIPT에는 incidentId, phoneTranscriptId와 revision이 필요합니다.")
+    @JsonIgnore
+    public boolean isPhoneTranscriptReferenceValid() {
+        if (inputType != InputType.PHONE_TRANSCRIPT) {
+            return phoneTranscriptId == null && phoneTranscriptRevision == null;
+        }
+        return incidentId != null && !incidentId.isBlank()
+                && phoneTranscriptId != null && !phoneTranscriptId.isBlank()
+                && phoneTranscriptRevision != null;
     }
 
     public enum CoordinateSource {

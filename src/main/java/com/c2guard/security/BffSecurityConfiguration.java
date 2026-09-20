@@ -76,7 +76,9 @@ public class BffSecurityConfiguration {
                         }
                     }
                     authorize.requestMatchers(HttpMethod.POST,
-                            "/api/c2guard/v1/incidents/*/phone-transcripts").permitAll();
+                            "/api/c2guard/v1/incidents/*/phone-transcripts",
+                            "/api/c2guard/v1/phone-provider/calls/start",
+                            "/api/c2guard/v1/phone-provider/calls/*/end").permitAll();
                     authorize
                             .requestMatchers("/api/c2guard/v1/incidents/*/**")
                             .access(incidentAuthorization)

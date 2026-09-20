@@ -5,37 +5,36 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class PhoneTranscriptEventBroker {
 
-    private static final int MAX_BUFFERED_EVENTS = 100;
+    private static final int MAX_REPLAY_EVENTS = 100;
     private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(30);
 
-    private final AtomicLong sequence = new AtomicLong();
-    private final Map<String, BoundedHistory> history = new ConcurrentHashMap<>();
+    private final PhoneTranscriptStore transcriptStore;
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> subscribers = new ConcurrentHashMap<>();
 
-    public PhoneTranscriptEvent publish(String incidentId, String transcriptId, String callId,
-                                        String text, String language, boolean isFinal,
-                                        String reviewStatus, java.time.OffsetDateTime receivedAt) {
-        PhoneTranscriptEvent event = new PhoneTranscriptEvent(sequence.incrementAndGet(),
-                incidentId, transcriptId, callId, text, language, isFinal, reviewStatus, receivedAt);
-        history.computeIfAbsent(incidentId, ignored -> new BoundedHistory()).synchronizedAdd(event);
-        for (SseEmitter emitter : subscribers.getOrDefault(incidentId, new CopyOnWriteArrayList<>())) {
+    public PhoneTranscriptEventBroker(PhoneTranscriptStore transcriptStore) {
+        this.transcriptStore = transcriptStore;
+    }
+
+    public PhoneTranscriptEvent publish(PhoneTranscriptStore.StoredTranscript stored) {
+        PhoneTranscriptEvent event = toEvent(stored);
+        for (SseEmitter emitter : subscribers.getOrDefault(
+                stored.incidentId(), new CopyOnWriteArrayList<>())) {
             try {
-                emitter.send(SseEmitter.event().id(Long.toString(event.eventId()))
+                emitter.send(SseEmitter.event().id(event.eventId())
                         .name("phone.transcript")
                         .reconnectTime(5000L)
                         .data(event));
             } catch (IOException error) {
                 emitter.completeWithError(error);
-                subscribers.getOrDefault(incidentId, new CopyOnWriteArrayList<>()).remove(emitter);
+                subscribers.getOrDefault(stored.incidentId(),
+                        new CopyOnWriteArrayList<>()).remove(emitter);
             }
         }
         return event;
@@ -53,19 +52,14 @@ public class PhoneTranscriptEventBroker {
             emitter.complete();
         });
         emitter.onError(ignored -> remove.run());
-        long after = parseEventId(lastEventId);
-        BoundedHistory events = history.get(incidentId);
-        if (events != null) {
-            synchronized (events) {
-                events.stream().filter(event -> event.eventId() > after).forEach(event -> send(emitter, event));
-            }
-        }
+        transcriptStore.findReplayEvents(incidentId, lastEventId, MAX_REPLAY_EVENTS)
+                .stream().map(this::toEvent).forEach(event -> send(emitter, event));
         return emitter;
     }
 
     private void send(SseEmitter emitter, PhoneTranscriptEvent event) {
         try {
-            emitter.send(SseEmitter.event().id(Long.toString(event.eventId()))
+            emitter.send(SseEmitter.event().id(event.eventId())
                     .name("phone.transcript")
                     .reconnectTime(5000L)
                     .data(event));
@@ -74,25 +68,11 @@ public class PhoneTranscriptEventBroker {
         }
     }
 
-    private long parseEventId(String value) {
-        if (value == null || value.isBlank()) {
-            return 0L;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException ignored) {
-            return 0L;
-        }
-    }
-
-    private static final class BoundedHistory extends ArrayDeque<PhoneTranscriptEvent> {
-        void synchronizedAdd(PhoneTranscriptEvent event) {
-            synchronized (this) {
-                addLast(event);
-                while (size() > MAX_BUFFERED_EVENTS) {
-                    removeFirst();
-                }
-            }
-        }
+    private PhoneTranscriptEvent toEvent(PhoneTranscriptStore.StoredTranscript stored) {
+        return new PhoneTranscriptEvent(stored.streamEventId(), stored.incidentId(),
+                stored.transcriptId(), stored.callId(), stored.text(), stored.language(),
+                stored.isFinal(), stored.reviewStatus(), stored.revision(),
+                stored.segmentIndex(), stored.reviewedByUserId(), stored.reviewedAt(),
+                stored.acceptedAt());
     }
 }

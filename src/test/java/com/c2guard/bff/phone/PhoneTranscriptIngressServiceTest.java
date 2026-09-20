@@ -15,7 +15,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PhoneTranscriptIngressServiceTest {
 
     private final PhoneIngressProperties properties = properties();
-    private final PhoneTranscriptEventBroker broker = new PhoneTranscriptEventBroker();
     private final Map<String, PhoneTranscriptStore.StoredTranscript> storedTranscripts = new ConcurrentHashMap<>();
     private final PhoneTranscriptStore transcriptStore = new PhoneTranscriptStore() {
         @Override
@@ -30,12 +29,14 @@ class PhoneTranscriptIngressServiceTest {
                                      java.time.OffsetDateTime acceptedAt) {
                 PhoneTranscriptStore.StoredTranscript stored = new PhoneTranscriptStore.StoredTranscript(transcriptId, incidentId, request.provider(),
                     request.callId(), request.eventId(), request.text(), request.language(),
-                    request.isFinal(), request.isFinal() ? "PENDING_REVIEW" : "INTERIM",
+                    request.isFinal(),
+                    request.isFinal() ? "FINAL_PENDING_REVIEW" : "INTERIM",
                     acceptedAt, requestId);
                 storedTranscripts.put(request.provider() + ":" + request.eventId(), stored);
                 return stored;
         }
     };
+    private final PhoneTranscriptEventBroker broker = new PhoneTranscriptEventBroker(transcriptStore);
     private final PhoneTranscriptIngressService service = new PhoneTranscriptIngressService(
             properties, broker, transcriptStore,
             Clock.fixed(Instant.parse("2026-09-18T12:00:00Z"), ZoneOffset.UTC));
@@ -46,7 +47,7 @@ class PhoneTranscriptIngressServiceTest {
                 "secret", "REQ-1");
 
         assertThat(response.isFinal()).isTrue();
-        assertThat(response.reviewStatus()).isEqualTo("PENDING_REVIEW");
+        assertThat(response.reviewStatus()).isEqualTo("FINAL_PENDING_REVIEW");
         assertThat(response.duplicate()).isFalse();
     }
 
@@ -70,6 +71,19 @@ class PhoneTranscriptIngressServiceTest {
                 "wrong", "REQ-1"))
                 .isInstanceOf(BffContractException.class)
                 .hasMessageContaining("전화 provider 인증");
+    }
+
+    @Test
+    void duplicateProviderEventWithDifferentPayloadFailsClosed() {
+        service.accept("INC-1", request("event-conflict", true), "secret", "REQ-1");
+        PhoneTranscriptIngressRequest conflicting = new PhoneTranscriptIngressRequest(
+                "clawops", "call-1", "event-conflict",
+                Instant.parse("2026-09-18T11:59:00Z").atOffset(ZoneOffset.UTC),
+                "서로 다른 전사", "ko", true, 1);
+
+        assertThatThrownBy(() -> service.accept("INC-1", conflicting, "secret", "REQ-2"))
+                .isInstanceOf(BffContractException.class)
+                .hasMessageContaining("다른 payload");
     }
 
     private PhoneTranscriptIngressRequest request(String eventId, boolean isFinal) {

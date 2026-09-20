@@ -9,6 +9,7 @@ public record PhoneTranscriptIngressResponse(
         String callId,
         boolean isFinal,
         String reviewStatus,
+        long revision,
         OffsetDateTime acceptedAt,
         boolean duplicate
 ) {
