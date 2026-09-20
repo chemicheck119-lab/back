@@ -13,6 +13,10 @@ FE는 `POST /api/c2guard/v1/incidents/analyze`만 호출하고 AI `/api/v1/**` �
 8. agent의 `analysis`를 기존 confirmation gate 검증과 BFF 화면 DTO로 투영한다.
 9. AI 원본, agent 원본과 화면 DTO snapshot을 analysis ID로 보존한 뒤 FE에 반환한다.
 
+agent memory·workflow·map context는 서버 내부 실행과 감사에만 사용한다. 일반 사고분석
+응답에는 이를 포함하지 않으며, 사용자 화면에는 신고에서 확인된 사실, 물질 후보, 공식
+근거, 2-CAS 확인 상태와 다음 행동만 반환한다.
+
 같은 최신 입력으로 agent가 `analysis=null`과 `NO_NEW_OBSERVATION`을 반환하면 BE는 새 위험
 결과를 만들지 않는다. 같은 incident의 마지막 권위 analysis snapshot을 사용하고 현재
 request ID만 응답 추적 값으로 갱신한다. 이전 snapshot이 없으면 422

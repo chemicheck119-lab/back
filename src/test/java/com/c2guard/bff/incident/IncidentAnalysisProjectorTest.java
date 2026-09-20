@@ -89,6 +89,23 @@ class IncidentAnalysisProjectorTest {
     }
 
     @Test
+    void omitsInternalAgentWorkflowAndMapContextFromTheResponderResponse() throws Exception {
+        ObjectNode model = (ObjectNode) load(
+                "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        ObjectNode agent = model.putObject("agent");
+        agent.put("current_objective", "Run internal operations workflow");
+        agent.putArray("workflow").addObject().put("step_id", "INCIDENT_LOCATION");
+        agent.putObject("map_context").put("route_status", "AVAILABLE");
+
+        JsonNode actual = projector.project(model, "REQ-EXAMPLE-0001",
+                "INC-EXAMPLE-0001");
+
+        assertFalse(actual.has("agent"));
+        assertFalse(actual.toString().contains("workflow"));
+        assertFalse(actual.toString().contains("mapContext"));
+    }
+
+    @Test
     void projectsCurrentModelEvidenceGroupsAndProvenance() throws Exception {
         ObjectNode model = (ObjectNode) load(
                 "src/test/resources/fixtures/model/incident_unconfirmed_response.json");

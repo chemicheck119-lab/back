@@ -437,16 +437,6 @@
       "DashboardAwaitingAnalysisResponse": {
         "additionalProperties": false,
         "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DashboardOperationsAgentSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "analysisId": {
             "maxLength": 128,
             "minLength": 1,
@@ -564,16 +554,6 @@
       "DashboardCompletedAnalysisResponse": {
         "additionalProperties": false,
         "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DashboardOperationsAgentSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "analysisId": {
             "maxLength": 128,
             "minLength": 1,
@@ -1957,16 +1937,6 @@
       "DashboardInconclusiveAnalysisResponse": {
         "additionalProperties": false,
         "properties": {
-          "agent": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DashboardOperationsAgentSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "analysisId": {
             "maxLength": 128,
             "minLength": 1,
