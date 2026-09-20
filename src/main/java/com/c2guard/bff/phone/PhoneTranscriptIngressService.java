@@ -14,12 +14,12 @@ public class PhoneTranscriptIngressService {
 
     private final PhoneIngressProperties properties;
     private final PhoneTranscriptEventBroker broker;
-        private final PhoneTranscriptStore transcriptStore;
+    private final PhoneTranscriptStore transcriptStore;
     private final Clock clock;
 
     public PhoneTranscriptIngressService(PhoneIngressProperties properties,
                                          PhoneTranscriptEventBroker broker,
-                                                                                 PhoneTranscriptStore transcriptStore,
+                                         PhoneTranscriptStore transcriptStore,
                                          Clock clock) {
         this.properties = properties;
         this.broker = broker;
@@ -49,18 +49,26 @@ public class PhoneTranscriptIngressService {
         var existing = transcriptStore.findByProviderEvent(request.provider(), request.eventId());
         if (existing.isPresent()) {
             var stored = existing.get();
+            if (!stored.incidentId().equals(incidentId)
+                    || !stored.callId().equals(request.callId())
+                    || !stored.originalText().equals(request.text())
+                    || stored.isFinal() != request.isFinal()) {
+                throw new BffContractException(409, "PHONE_EVENT_ID_CONFLICT",
+                        "같은 provider event ID에 다른 payload가 수신되었습니다.", false);
+            }
             return new PhoneTranscriptIngressResponse(stored.requestId(), stored.incidentId(),
                     stored.transcriptId(), stored.callId(), stored.isFinal(),
-                    stored.reviewStatus(), stored.acceptedAt(), true);
+                    stored.reviewStatus(), stored.revision(), stored.acceptedAt(), true);
         }
         OffsetDateTime acceptedAt = OffsetDateTime.now(clock);
         String transcriptId = "TRX-" + UUID.randomUUID();
-        String reviewStatus = request.isFinal() ? "PENDING_REVIEW" : "INTERIM";
         var stored = transcriptStore.save(incidentId, request, transcriptId, requestId, acceptedAt);
-        broker.publish(incidentId, transcriptId, request.callId(), request.text(),
-                request.language(), request.isFinal(), reviewStatus, acceptedAt);
+        boolean created = transcriptId.equals(stored.transcriptId());
+        if (created) {
+            broker.publish(stored);
+        }
         return new PhoneTranscriptIngressResponse(stored.requestId(), stored.incidentId(),
                 stored.transcriptId(), stored.callId(), stored.isFinal(), stored.reviewStatus(),
-                stored.acceptedAt(), false);
+                stored.revision(), stored.acceptedAt(), !created);
     }
 }

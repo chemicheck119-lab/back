@@ -1759,6 +1759,7 @@
               "MANUAL_TEXT",
               "DISPATCH_TEXT",
               "VOICE_TRANSCRIPT",
+              "PHONE_TRANSCRIPT",
               "STRUCTURED_FORM"
             ],
             "title": "Inputtype",
@@ -1803,6 +1804,31 @@
             "maxItems": 20,
             "title": "Plannedactions",
             "type": "array"
+          },
+          "phoneTranscriptId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inputType=PHONE_TRANSCRIPT일 때 서버에서 승인된 전사를 조회하는 ID"
+          },
+          "phoneTranscriptRevision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inputType=PHONE_TRANSCRIPT일 때 분석할 REVIEWED revision"
           },
           "text": {
             "maxLength": 4000,
@@ -4791,6 +4817,7 @@
           "callId",
           "isFinal",
           "reviewStatus",
+          "revision",
           "acceptedAt",
           "duplicate"
         ],
@@ -4820,11 +4847,18 @@
           },
           "reviewStatus": {
             "enum": [
-              "PENDING_REVIEW",
-              "INTERIM"
+              "INTERIM",
+              "FINAL_PENDING_REVIEW",
+              "REVIEWED",
+              "ANALYZED"
             ],
             "type": "string",
-            "description": "isFinal이면 PENDING_REVIEW(담당자 검토 대기), 아니면 INTERIM."
+            "description": "서버가 강제하는 전사 검토 상태"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "acceptedAt": {
             "type": "string",
@@ -4849,12 +4883,13 @@
           "text",
           "isFinal",
           "reviewStatus",
+          "revision",
           "receivedAt"
         ],
         "properties": {
           "eventId": {
-            "type": "integer",
-            "format": "int64"
+            "type": "string",
+            "description": "DB에서 복원 가능한 transcriptId:revision 형식의 안정적인 SSE ID"
           },
           "incidentId": {
             "type": "string",
@@ -4889,16 +4924,73 @@
           },
           "reviewStatus": {
             "enum": [
-              "PENDING_REVIEW",
-              "INTERIM"
+              "INTERIM",
+              "FINAL_PENDING_REVIEW",
+              "REVIEWED",
+              "ANALYZED"
             ],
             "type": "string",
-            "description": "isFinal이면 PENDING_REVIEW(담당자 검토 대기), 아니면 INTERIM."
+            "description": "서버가 강제하는 전사 검토 상태"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "segmentIndex": {
+            "anyOf": [
+              { "type": "integer" },
+              { "type": "null" }
+            ]
+          },
+          "reviewedBy": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          },
+          "reviewedAt": {
+            "anyOf": [
+              { "type": "string", "format": "date-time" },
+              { "type": "null" }
+            ]
           },
           "receivedAt": {
             "type": "string",
             "format": "date-time"
           }
+        }
+      },
+      "DashboardPhoneTranscriptReviewRequest": {
+        "title": "DashboardPhoneTranscriptReviewRequest",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "expectedRevision"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "DashboardPhoneSessionResponse": {
+        "title": "DashboardPhoneSessionResponse",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "incidentId", "stationId", "stationDisplayName", "status", "createdAt"],
+        "properties": {
+          "requestId": {"type": "string"},
+          "incidentId": {"type": "string", "maxLength": 128},
+          "stationId": {"type": "string", "maxLength": 128},
+          "stationDisplayName": {"type": "string", "maxLength": 200},
+          "status": {"type": "string", "const": "WAITING_FOR_CALL"},
+          "createdAt": {"type": "string", "format": "date-time"}
         }
       }
     },
@@ -6314,6 +6406,25 @@
         "x-model-api-direct-browser-call-allowed": false
       }
     },
+    "/api/c2guard/v1/phone-sessions": {
+      "post": {
+        "operationId": "create_phone_session_api_c2guard_v1_phone_sessions_post",
+        "summary": "상황실 전화 접수 세션 생성",
+        "description": "인증된 담당자와 관할 상황실에 연결된 서버 소유 incident를 생성합니다.",
+        "tags": ["dashboard-bff"],
+        "responses": {
+          "200": {
+            "description": "Created phone intake session",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DashboardPhoneSessionResponse"}}}
+          },
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Forbidden"}
+        },
+        "security": [{"ServiceSession": []}],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false
+      }
+    },
     "/api/c2guard/v1/incidents/{incidentId}/phone-transcripts": {
       "post": {
         "operationId": "ingest_phone_transcript_api_c2guard_v1_incidents__incidentId__phone_transcripts_post",
@@ -6427,6 +6538,49 @@
         "x-model-api-direct-browser-call-allowed": false,
         "x-browser-call-allowed": false,
         "x-audio-retained": false
+      }
+    },
+    "/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/{transcriptId}/review": {
+      "put": {
+        "operationId": "review_phone_transcript_api_c2guard_v1_incidents__incidentId__phone_transcripts__transcriptId__review_put",
+        "summary": "최종 전화 전사 수정·승인",
+        "description": "사고 접근 권한이 있는 담당자가 FINAL_PENDING_REVIEW 전사를 한 번 수정·승인합니다. expectedRevision 불일치, INTERIM 또는 이미 변경된 전사는 409로 닫힙니다.",
+        "tags": ["dashboard-bff"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incidentId",
+            "required": true,
+            "schema": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$"}
+          },
+          {
+            "in": "path",
+            "name": "transcriptId",
+            "required": true,
+            "schema": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/DashboardPhoneTranscriptReviewRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "REVIEWED revision",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DashboardPhoneTranscriptEvent"}}}
+          },
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Transcript not found"},
+          "409": {"description": "Not final or revision conflict"}
+        },
+        "security": [{"ServiceSession": []}],
+        "x-implementation-owner": "BE_Repository",
+        "x-model-api-direct-browser-call-allowed": false
       }
     },
     "/api/c2guard/v1/incidents/{incidentId}/phone-transcripts/stream": {

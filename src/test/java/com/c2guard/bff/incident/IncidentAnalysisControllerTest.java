@@ -2,6 +2,8 @@ package com.c2guard.bff.incident;
 
 import com.c2guard.integration.model.ModelApiClient;
 import com.c2guard.bff.movement.IncidentMovementContextStore;
+import com.c2guard.bff.phone.PhoneTranscriptIngressRequest;
+import com.c2guard.bff.phone.PhoneTranscriptStore;
 import com.c2guard.integration.model.ModelApiErrorKind;
 import com.c2guard.integration.model.ModelApiException;
 import com.c2guard.integration.model.ModelApiResponse;
@@ -17,16 +19,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static com.c2guard.security.BffTestSession.responder;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -65,6 +71,12 @@ class IncidentAnalysisControllerTest {
 
     @Autowired
     private IncidentAgentMemoryStore agentMemoryStore;
+
+    @Autowired
+    private PhoneTranscriptStore phoneTranscriptStore;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void returnsTheExactClientFixtureAndForwardsTheSameRequestId() throws Exception {
@@ -120,6 +132,79 @@ class IncidentAnalysisControllerTest {
                 .andExpect(jsonPath("$.resetAllowed").value(false));
 
         verifyNoInteractions(modelApiClient);
+    }
+
+    @Test
+    void rejectsPhoneTranscriptBeforeHumanReview() throws Exception {
+        String incidentId = "INC-PHONE-PENDING";
+        var occurredAt = Instant.parse("2026-09-20T08:10:00Z").atOffset(ZoneOffset.UTC);
+        jdbcTemplate.update("INSERT INTO incidents (incident_id, created_at, last_activity_at) VALUES (?, ?, ?)",
+                incidentId, occurredAt, occurredAt);
+        PhoneTranscriptStore.StoredTranscript pending = phoneTranscriptStore.save(incidentId,
+                new PhoneTranscriptIngressRequest("clawops", "CALL-PENDING", "EVENT-PENDING",
+                        occurredAt, "염소 누출 의심", "ko", true, 1),
+                "TRX-PENDING", "REQ-PHONE-PENDING", occurredAt);
+
+        ObjectNode request = objectMapper.createObjectNode();
+        request.put("incidentId", incidentId);
+        request.put("text", pending.text());
+        request.put("inputType", "PHONE_TRANSCRIPT");
+        request.put("phoneTranscriptId", pending.transcriptId());
+        request.put("phoneTranscriptRevision", pending.revision());
+
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", "REQ-ANALYZE-PENDING")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("PHONE_TRANSCRIPT_REVIEW_REQUIRED"));
+
+        verifyNoInteractions(modelApiClient);
+    }
+
+    @Test
+    void analyzesOnlyTheExactReviewedPhoneTranscriptRevision() throws Exception {
+        String incidentId = "INC-PHONE-REVIEWED";
+        String requestId = "REQ-ANALYZE-REVIEWED";
+        var occurredAt = Instant.parse("2026-09-20T08:20:00Z").atOffset(ZoneOffset.UTC);
+        jdbcTemplate.update("INSERT INTO incidents (incident_id, created_at, last_activity_at) VALUES (?, ?, ?)",
+                incidentId, occurredAt, occurredAt);
+        PhoneTranscriptStore.StoredTranscript pending = phoneTranscriptStore.save(incidentId,
+                new PhoneTranscriptIngressRequest("clawops", "CALL-REVIEWED", "EVENT-REVIEWED",
+                        occurredAt, "염소 누출 의심", "ko", true, 1),
+                "TRX-REVIEWED", "REQ-PHONE-REVIEWED", occurredAt);
+        PhoneTranscriptStore.StoredTranscript reviewed = phoneTranscriptStore.review(incidentId,
+                pending.transcriptId(), "염소 누출 확인", 0, "reviewer-1", "station-1",
+                "REQ-REVIEW", occurredAt.plusSeconds(5));
+
+        ObjectNode model = (ObjectNode) load(
+                "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        model.put("request_id", requestId);
+        model.put("incident_id", incidentId);
+        model.put("analysis_id", "ANL-PHONE-REVIEWED");
+        JsonNode agent = IncidentAgentTestResponse.withAnalysis(objectMapper, model,
+                requestId, incidentId, null);
+        when(modelApiClient.stepIncidentAgent(any(JsonNode.class), eq(requestId)))
+                .thenReturn(new ModelApiResponse(requestId, agent));
+
+        ObjectNode request = objectMapper.createObjectNode();
+        request.put("incidentId", incidentId);
+        request.put("text", reviewed.text());
+        request.put("inputType", "PHONE_TRANSCRIPT");
+        request.put("phoneTranscriptId", reviewed.transcriptId());
+        request.put("phoneTranscriptRevision", reviewed.revision());
+
+        mockMvc.perform(post(PATH)
+                        .cookie(responder(tokenService, incidentId))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysisId").value("ANL-PHONE-REVIEWED"));
+
+        assertThat(phoneTranscriptStore.findById(incidentId, reviewed.transcriptId()).orElseThrow()
+                .reviewStatus()).isEqualTo("ANALYZED");
     }
 
     @Test

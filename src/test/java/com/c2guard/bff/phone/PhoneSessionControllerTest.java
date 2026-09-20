@@ -1,0 +1,52 @@
+package com.c2guard.bff.phone;
+
+import com.c2guard.security.SignedSessionTokenService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import static com.c2guard.security.BffTestSession.responder;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class PhoneSessionControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private SignedSessionTokenService tokenService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Test
+    void authenticatedOperatorCreatesServerOwnedIncidentSession() throws Exception {
+        String response = mockMvc.perform(post("/api/c2guard/v1/phone-sessions")
+                        .cookie(responder(tokenService, "*"))
+                        .header("X-Request-Id", "REQ-PHONE-SESSION"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestId").value("REQ-PHONE-SESSION"))
+                .andExpect(jsonPath("$.status").value("WAITING_FOR_CALL"))
+                .andExpect(jsonPath("$.incidentId").value(
+                        org.hamcrest.Matchers.startsWith("INC-PHONE-")))
+                .andReturn().getResponse().getContentAsString();
+
+        String incidentId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(response).path("incidentId").asText();
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM incident_phone_sessions
+                WHERE incident_id = ? AND session_status = 'WAITING_FOR_CALL'
+                """, Integer.class, incidentId);
+        assertThat(count).isEqualTo(1);
+    }
+}

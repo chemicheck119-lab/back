@@ -43,6 +43,16 @@ on:
         required: true
         type: boolean
         default: true
+      phone_ingress_enabled:
+        description: 전화 gateway의 내부 transcript ingress를 활성화합니다
+        required: true
+        type: boolean
+        default: false
+      promote_traffic:
+        description: candidate smoke 통과 후 staging 100% traffic을 전환합니다
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -110,6 +120,10 @@ jobs:
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
           GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
           GCP_NAVER_DIRECTIONS_ENABLED: ${{ inputs.naver_directions_enabled }}
+          GCP_PHONE_INGRESS_ENABLED: ${{ inputs.phone_ingress_enabled }}
+          GCP_PHONE_INGRESS_SECRET: ${{ vars.GCP_PHONE_INGRESS_SECRET }}
+          GCP_PHONE_INGRESS_SECRET_VERSION: ${{ vars.GCP_PHONE_INGRESS_SECRET_VERSION }}
+          GCP_PROMOTE_TRAFFIC: ${{ inputs.promote_traffic }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/develop"
@@ -138,7 +152,9 @@ jobs:
             GCP_REQUIRE_EXTERNAL_DATABASE \
             GCP_STAGING_AUTH_ENABLED \
             GCP_PUBLIC_PILOT_ACCESS_ENABLED \
-            GCP_NAVER_DIRECTIONS_ENABLED
+            GCP_NAVER_DIRECTIONS_ENABLED \
+            GCP_PHONE_INGRESS_ENABLED \
+            GCP_PROMOTE_TRAFFIC
           do
             test -n "${!name:-}" || {
               echo "Missing required GitHub repository variable: $name"
@@ -160,6 +176,13 @@ jobs:
           [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" =~ ^(true|false)$ ]]
           [[ "$GCP_NAVER_DIRECTIONS_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_PHONE_INGRESS_ENABLED" =~ ^(true|false)$ ]]
+          [[ "$GCP_PROMOTE_TRAFFIC" =~ ^(true|false)$ ]]
+          if [ "$GCP_PHONE_INGRESS_ENABLED" = "true" ]; then
+            test -n "$GCP_PHONE_INGRESS_SECRET"
+            [[ "$GCP_PHONE_INGRESS_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+            [[ "$GCP_PHONE_INGRESS_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+          fi
           if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
             test "$GCP_STAGING_AUTH_ENABLED" = "true"
             test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
@@ -308,6 +331,10 @@ jobs:
           GCP_STAGING_AUTH_ENABLED: ${{ inputs.staging_auth_enabled }}
           GCP_PUBLIC_PILOT_ACCESS_ENABLED: ${{ inputs.public_pilot_access_enabled }}
           GCP_NAVER_DIRECTIONS_ENABLED: ${{ inputs.naver_directions_enabled }}
+          GCP_PHONE_INGRESS_ENABLED: ${{ inputs.phone_ingress_enabled }}
+          GCP_PHONE_INGRESS_SECRET: ${{ vars.GCP_PHONE_INGRESS_SECRET }}
+          GCP_PHONE_INGRESS_SECRET_VERSION: ${{ vars.GCP_PHONE_INGRESS_SECRET_VERSION }}
+          GCP_PROMOTE_TRAFFIC: ${{ inputs.promote_traffic }}
         run: scripts/deployment/deploy_cloud_run_blue_green.sh
 
       - name: Write deployment summary
@@ -330,6 +357,8 @@ jobs:
             echo "- Staging authentication: \`${{ inputs.staging_auth_enabled }}\`"
             echo "- Public pilot access: \`${{ inputs.public_pilot_access_enabled }}\`"
             echo "- Naver Directions 5: \`${{ inputs.naver_directions_enabled }}\`"
+            echo "- Phone ingress: \`${{ inputs.phone_ingress_enabled }}\`"
+            echo "- Traffic promoted: \`${{ inputs.promote_traffic }}\`"
             echo "- External database: \`true\` (required)"
             echo "- Previous revision: \`${{ steps.deploy.outputs.previous_revision }}\`"
             echo

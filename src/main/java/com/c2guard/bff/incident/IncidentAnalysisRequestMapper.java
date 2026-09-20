@@ -35,7 +35,9 @@ class IncidentAnalysisRequestMapper {
         target.put("incident_id", incidentId);
 
         ObjectNode input = target.putObject("input");
-        input.put("type", source.inputType().name());
+        input.put("type", source.inputType() == IncidentAnalyzeRequest.InputType.PHONE_TRANSCRIPT
+                ? IncidentAnalyzeRequest.InputType.VOICE_TRANSCRIPT.name()
+                : source.inputType().name());
         input.put("text", source.text().trim());
         putTime(input, "occurred_at", source.occurredAt());
 

@@ -26,6 +26,8 @@ required_variables=(
   GCP_STAGING_AUTH_ENABLED
   GCP_PUBLIC_PILOT_ACCESS_ENABLED
   GCP_NAVER_DIRECTIONS_ENABLED
+  GCP_PHONE_INGRESS_ENABLED
+  GCP_PROMOTE_TRAFFIC
 )
 for variable_name in "${required_variables[@]}"; do
   test -n "${!variable_name:-}" || {
@@ -58,6 +60,13 @@ fi
 [[ "$GCP_STAGING_AUTH_ENABLED" =~ ^(true|false)$ ]]
 [[ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" =~ ^(true|false)$ ]]
 [[ "$GCP_NAVER_DIRECTIONS_ENABLED" =~ ^(true|false)$ ]]
+[[ "$GCP_PHONE_INGRESS_ENABLED" =~ ^(true|false)$ ]]
+[[ "$GCP_PROMOTE_TRAFFIC" =~ ^(true|false)$ ]]
+if [ "$GCP_PHONE_INGRESS_ENABLED" = "true" ]; then
+  test -n "${GCP_PHONE_INGRESS_SECRET:-}"
+  [[ "$GCP_PHONE_INGRESS_SECRET" =~ ^[a-zA-Z0-9_-]+$ ]]
+  [[ "$GCP_PHONE_INGRESS_SECRET_VERSION" =~ ^[1-9][0-9]*$ ]]
+fi
 if [ "$GCP_PUBLIC_PILOT_ACCESS_ENABLED" = "true" ]; then
   test "$GCP_STAGING_AUTH_ENABLED" = "true"
   test "$GCP_PUBLIC_ANALYSIS_ENABLED" = "false"
@@ -186,8 +195,12 @@ if [ "$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED" = "true" ]; then
   synthetic_confirmation_enabled=true
 fi
 
-env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_IAM_ENABLED=true;CHEMICHECK119_MODEL_API_IAM_AUDIENCE=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_SPEECH_API_BASE_URL=$GCP_SPEECH_API_BASE_URL;CHEMICHECK119_SPEECH_API_IAM_ENABLED=true;CHEMICHECK119_SPEECH_API_IAM_AUDIENCE=$GCP_SPEECH_API_BASE_URL;CHEMICHECK119_SPEECH_API_SCHEMA=chemicheck119-speech-api-v1;CHEMICHECK119_SPEECH_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_SPEECH_API_RESPONSE_TIMEOUT_SECONDS=45;CHEMICHECK119_SPEECH_API_MAX_AUDIO_BYTES=16777216;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_NAVER_DIRECTIONS_ENABLED=$GCP_NAVER_DIRECTIONS_ENABLED;CHEMICHECK119_NAVER_DIRECTIONS_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_NAVER_DIRECTIONS_RESPONSE_TIMEOUT_SECONDS=5;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_DEMO_LOGS_ENABLED=$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED;CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION=15;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
+env_vars="CHEMICHECK119_RELEASE_GIT_COMMIT=$RELEASE_GIT_COMMIT;CHEMICHECK119_RELEASE_ENVIRONMENT=staging;CHEMICHECK119_MODEL_API_BASE_URL=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_IAM_ENABLED=true;CHEMICHECK119_MODEL_API_IAM_AUDIENCE=$GCP_MODEL_API_BASE_URL;CHEMICHECK119_MODEL_API_SCHEMA=chemiguard119-api-v1;CHEMICHECK119_MODEL_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_MODEL_API_RESPONSE_TIMEOUT_SECONDS=15;CHEMICHECK119_MODEL_API_MAX_RETRIES=1;CHEMICHECK119_SPEECH_API_BASE_URL=$GCP_SPEECH_API_BASE_URL;CHEMICHECK119_SPEECH_API_IAM_ENABLED=true;CHEMICHECK119_SPEECH_API_IAM_AUDIENCE=$GCP_SPEECH_API_BASE_URL;CHEMICHECK119_SPEECH_API_SCHEMA=chemicheck119-speech-api-v1;CHEMICHECK119_SPEECH_API_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_SPEECH_API_RESPONSE_TIMEOUT_SECONDS=45;CHEMICHECK119_SPEECH_API_MAX_AUDIO_BYTES=16777216;CHEMICHECK119_PHONE_INGRESS_ENABLED=$GCP_PHONE_INGRESS_ENABLED;CHEMICHECK119_MOVEMENT_ALLOW_DEMO_SIMULATION=false;CHEMICHECK119_NAVER_DIRECTIONS_ENABLED=$GCP_NAVER_DIRECTIONS_ENABLED;CHEMICHECK119_NAVER_DIRECTIONS_CONNECT_TIMEOUT_SECONDS=2;CHEMICHECK119_NAVER_DIRECTIONS_RESPONSE_TIMEOUT_SECONDS=5;CHEMICHECK119_CORS_ALLOWED_ORIGINS=$cors_allowed_origins;CHEMICHECK119_PUBLIC_ANALYSIS_ENABLED=$GCP_PUBLIC_ANALYSIS_ENABLED;CHEMICHECK119_INCIDENT_REPLAY_ENABLED=$incident_replay_enabled;CHEMICHECK119_INCIDENT_REPLAY_PUBLIC_ENDPOINT_ENABLED=$GCP_PUBLIC_INCIDENT_REPLAY_ENABLED;CHEMICHECK119_SYNTHETIC_CONFIRMATION_ENABLED=$synthetic_confirmation_enabled;CHEMICHECK119_SYNTHETIC_INCIDENT_TTL=30m;CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS=100;CHEMICHECK119_INCIDENT_REPLAY_DELAY=1s;CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT=10s;CHEMICHECK119_DEMO_LOGS_ENABLED=$GCP_AUTHENTICATED_DEMO_REPLAY_ENABLED;CHEMICHECK119_DEMO_LOGS_RECORDS_PER_STATION=15;CHEMICHECK119_REQUIRE_EXTERNAL_DATABASE=$GCP_REQUIRE_EXTERNAL_DATABASE;CHEMICHECK119_SESSION_COOKIE_NAME=__session;CHEMICHECK119_SESSION_COOKIE_SECURE=true;CHEMICHECK119_SESSION_COOKIE_SAME_SITE=Lax;CHEMICHECK119_STAGING_AUTH_ENABLED=$GCP_STAGING_AUTH_ENABLED;CHEMICHECK119_STAGING_AUTH_PUBLIC_PILOT_ENABLED=$GCP_PUBLIC_PILOT_ACCESS_ENABLED"
 secret_bindings="CHEMICHECK119_SESSION_SECRET=$GCP_SESSION_SECRET:$GCP_SESSION_SECRET_VERSION,CHEMICHECK119_MODEL_API_KEY=$GCP_MODEL_API_KEY_SECRET:$GCP_MODEL_API_KEY_SECRET_VERSION,CHEMICHECK119_SPEECH_API_KEY=$GCP_SPEECH_API_KEY_SECRET:$GCP_SPEECH_API_KEY_SECRET_VERSION"
+
+if [ "$GCP_PHONE_INGRESS_ENABLED" = "true" ]; then
+  secret_bindings+=",CHEMICHECK119_PHONE_INGRESS_TOKEN=$GCP_PHONE_INGRESS_SECRET:$GCP_PHONE_INGRESS_SECRET_VERSION"
+fi
 
 if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
   secret_bindings+=",CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_ID=$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_NAME:$GCP_NAVER_DIRECTIONS_CLIENT_ID_SECRET_VERSION,CHEMICHECK119_NAVER_DIRECTIONS_CLIENT_SECRET=$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_NAME:$GCP_NAVER_DIRECTIONS_CLIENT_SECRET_VERSION"
@@ -310,6 +323,22 @@ smoke() {
     "$base_url/actuator/info" \
     | jq --exit-status --arg gitCommit "$RELEASE_GIT_COMMIT" \
       '.release.gitCommit == $gitCommit and .release.environment == "staging"' >/dev/null
+
+  if [ "$GCP_PHONE_INGRESS_ENABLED" = "true" ]; then
+    http_code="$(curl --silent --show-error \
+      --output "$health_file" \
+      --write-out '%{http_code}' \
+      --request POST \
+      --header 'Content-Type: application/json' \
+      --data '{"provider":"smoke","callId":"redacted","eventId":"unauthorized-smoke","occurredAt":"2026-01-01T00:00:00Z","text":"smoke"}' \
+      "$base_url/api/c2guard/v1/incidents/INC-SMOKE/phone-transcripts")"
+    if [ "$http_code" != "401" ] || ! jq --exit-status \
+      '.error.code == "PHONE_INGRESS_UNAUTHORIZED"' "$health_file" >/dev/null; then
+      echo "Phone ingress authentication smoke failed: HTTP $http_code"
+      rm -f "$health_file"
+      return 1
+    fi
+  fi
 
   if [ "$GCP_STAGING_AUTH_ENABLED" = "true" ]; then
     local expected_auth_action="/auth/staging/login"
@@ -583,14 +612,14 @@ PY
           --arg incidentId "$replay_incident_id" \
           --arg role "$confirmation_role" \
           --arg cas "$expected_cas" \
-          --argjson confirmedCount "$confirmation_index" \
+          --arg confirmedCount "$confirmation_index" \
           '.schemaVersion == "chemicheck119-synthetic-replay-confirmation-v1"
             and .incidentId == $incidentId
             and .role == $role
             and .casNumber == $cas
             and .dataClassification == "PUBLIC_SYNTHETIC"
             and .confirmationType == "SYNTHETIC_DEMO_CONFIRMATION"
-            and .confirmedCount == $confirmedCount
+            and .confirmedCount == ($confirmedCount | tonumber)
             and .reanalyzeRequired == true' "$confirmation_file" >/dev/null; then
           echo "Synthetic confirmation smoke failed for $confirmation_role: HTTP $http_code"
           rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
@@ -642,16 +671,21 @@ PY
           rm -f "$session_cookie_file" "$health_file" "$replay_file" "$confirmation_file"
           return 1
         fi
-        if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ]; then
+        if [ "$GCP_NAVER_DIRECTIONS_ENABLED" = "true" ] \
+            && [ -n "$session_cookie_file" ] \
+            && [ -n "$pilot_latitude" ] \
+            && [ -n "$pilot_longitude" ]; then
           local movement_request
+          [[ "$pilot_latitude" =~ ^-?[0-9]+([.][0-9]+)?$ ]]
+          [[ "$pilot_longitude" =~ ^-?[0-9]+([.][0-9]+)?$ ]]
           movement_request="$(jq --null-input --compact-output \
-            --argjson latitude "$pilot_latitude" \
-            --argjson longitude "$pilot_longitude" \
+            --arg latitude "$pilot_latitude" \
+            --arg longitude "$pilot_longitude" \
             --arg observedAt "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             '{
               responderPosition: {
-                latitude: $latitude,
-                longitude: $longitude,
+                latitude: ($latitude | tonumber),
+                longitude: ($longitude | tonumber),
                 observedAt: $observedAt,
                 source: "MANUAL_DISPATCH"
               },
@@ -733,14 +767,17 @@ on_exit() {
 }
 trap on_exit EXIT
 
-gcloud run services update-traffic "$GCP_CLOUD_RUN_SERVICE" \
-  --project "$GCP_PROJECT_ID" \
-  --region "$GCP_REGION" \
-  --to-revisions "$candidate_revision=100" \
-  --quiet
-promoted=true
-
-smoke "$service_url"
+if [ "$GCP_PROMOTE_TRAFFIC" = "true" ]; then
+  gcloud run services update-traffic "$GCP_CLOUD_RUN_SERVICE" \
+    --project "$GCP_PROJECT_ID" \
+    --region "$GCP_REGION" \
+    --to-revisions "$candidate_revision=100" \
+    --quiet
+  promoted=true
+  smoke "$service_url"
+else
+  echo "Candidate smoke passed; traffic promotion was intentionally skipped."
+fi
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
