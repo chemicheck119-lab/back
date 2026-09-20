@@ -75,10 +75,8 @@ class IncidentAnalysisProjector {
                     : projectGroundedRag(requireObject(groundedRag, "grounded_rag")));
             validateGroundedRag(target.get("groundedRag"), state);
         }
-        JsonNode agent = source.get("agent");
-        if (agent != null) {
-            target.set("agent", agent.isNull() ? agent.deepCopy() : toCamelCase(agent));
-        }
+        // Agent memory, workflow and map context are internal orchestration details.
+        // The responder-facing response contains only facts, evidence, gates and next actions.
 
         ObjectNode gate = projectConfirmationGate(requireObjectField(source, "confirmation_gate"));
         target.set("confirmationGate", gate);
