@@ -20,7 +20,7 @@
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "9fbea6a87cefa7437ab2e13eeb21f7f3aea06d80e95668bf171c94e8682193ce",
+      "sha256": "42f57a49dbc896b3f0bc76d83e6d0d55b4d3e55833a361523685865a76daf546",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
