@@ -1,0 +1,192 @@
+name: ClawOps Gateway Cloud Run staging deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_staging:
+        description: develop 커밋의 Gateway 이미지를 빌드·배포합니다
+        required: true
+        type: boolean
+        default: false
+      confirm_live_number_takeover:
+        description: 새 revision이 070 번호의 단일 Agent 연결을 인수합니다
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: clawops-gateway-cloud-run-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Build, deploy one instance, and verify ClawOps readiness
+    if: ${{ inputs.confirm_staging && inputs.confirm_live_number_takeover }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+
+    steps:
+      - name: Check out develop commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate immutable deployment inputs
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          GCP_GATEWAY_SERVICE: ${{ vars.GCP_CLAWOPS_GATEWAY_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          GCP_GATEWAY_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_CLAWOPS_GATEWAY_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_BACKEND_URL: ${{ vars.GCP_CLAWOPS_GATEWAY_BACKEND_URL }}
+          GCP_CLAWOPS_FROM_NUMBER: ${{ vars.GCP_CLAWOPS_FROM_NUMBER }}
+          GCP_CLAWOPS_API_KEY_SECRET: ${{ vars.GCP_CLAWOPS_API_KEY_SECRET }}
+          GCP_CLAWOPS_API_KEY_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_API_KEY_SECRET_VERSION }}
+          GCP_CLAWOPS_ACCOUNT_ID_SECRET: ${{ vars.GCP_CLAWOPS_ACCOUNT_ID_SECRET }}
+          GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION }}
+          GCP_OPENAI_API_KEY_SECRET: ${{ vars.GCP_CLAWOPS_OPENAI_API_KEY_SECRET }}
+          GCP_OPENAI_API_KEY_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_OPENAI_API_KEY_SECRET_VERSION }}
+          GCP_PHONE_INGRESS_SECRET: ${{ vars.GCP_PHONE_INGRESS_SECRET }}
+          GCP_PHONE_INGRESS_SECRET_VERSION: ${{ vars.GCP_PHONE_INGRESS_SECRET_VERSION }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/develop"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for name in \
+            GCP_PROJECT_ID GCP_REGION GCP_ARTIFACT_REPOSITORY GCP_GATEWAY_SERVICE \
+            GCP_WORKLOAD_IDENTITY_PROVIDER GCP_DEPLOY_SERVICE_ACCOUNT \
+            GCP_GATEWAY_RUNTIME_SERVICE_ACCOUNT GCP_BACKEND_URL GCP_CLAWOPS_FROM_NUMBER \
+            GCP_CLAWOPS_API_KEY_SECRET GCP_CLAWOPS_API_KEY_SECRET_VERSION \
+            GCP_CLAWOPS_ACCOUNT_ID_SECRET GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION \
+            GCP_OPENAI_API_KEY_SECRET GCP_OPENAI_API_KEY_SECRET_VERSION \
+            GCP_PHONE_INGRESS_SECRET GCP_PHONE_INGRESS_SECRET_VERSION
+          do
+            test -n "${!name:-}" || {
+              echo "Missing required GitHub repository variable: $name"
+              exit 1
+            }
+          done
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GCP_BACKEND_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
+          [[ "$GCP_CLAWOPS_FROM_NUMBER" =~ ^070[0-9]{7,8}$ ]]
+          for version in \
+            GCP_CLAWOPS_API_KEY_SECRET_VERSION GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION \
+            GCP_OPENAI_API_KEY_SECRET_VERSION GCP_PHONE_INGRESS_SECRET_VERSION
+          do
+            [[ "${!version}" =~ ^[1-9][0-9]*$ ]]
+          done
+
+      - name: Set up Node 22 and verify gateway
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+
+      - name: Run gateway contract, privacy, type, and build checks
+        working-directory: gateway
+        run: |
+          npm ci
+          npm run check
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: "578.0.0"
+
+      - name: Build and push immutable gateway image
+        id: image
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          registry="$GCP_REGION-docker.pkg.dev"
+          image_tag="$registry/$GCP_PROJECT_ID/$GCP_ARTIFACT_REPOSITORY/clawops-gateway:$GITHUB_SHA"
+          gcloud auth configure-docker "$registry" --quiet
+          docker build --tag "$image_tag" gateway
+          test "$(docker image inspect "$image_tag" --format '{{.Config.User}}')" = "node"
+          docker push "$image_tag"
+          image_digest="$(gcloud artifacts docker images describe "$image_tag" \
+            --project "$GCP_PROJECT_ID" \
+            --format='value(image_summary.fully_qualified_digest)')"
+          [[ "$image_digest" =~ @sha256:[0-9a-f]{64}$ ]]
+          echo "image_digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy one continuously allocated gateway instance
+        id: deploy
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.image_digest }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_GATEWAY_SERVICE: ${{ vars.GCP_CLAWOPS_GATEWAY_SERVICE }}
+          GCP_GATEWAY_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_CLAWOPS_GATEWAY_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_BACKEND_URL: ${{ vars.GCP_CLAWOPS_GATEWAY_BACKEND_URL }}
+          GCP_CLAWOPS_FROM_NUMBER: ${{ vars.GCP_CLAWOPS_FROM_NUMBER }}
+          GCP_CLAWOPS_API_KEY_SECRET: ${{ vars.GCP_CLAWOPS_API_KEY_SECRET }}
+          GCP_CLAWOPS_API_KEY_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_API_KEY_SECRET_VERSION }}
+          GCP_CLAWOPS_ACCOUNT_ID_SECRET: ${{ vars.GCP_CLAWOPS_ACCOUNT_ID_SECRET }}
+          GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION }}
+          GCP_OPENAI_API_KEY_SECRET: ${{ vars.GCP_CLAWOPS_OPENAI_API_KEY_SECRET }}
+          GCP_OPENAI_API_KEY_SECRET_VERSION: ${{ vars.GCP_CLAWOPS_OPENAI_API_KEY_SECRET_VERSION }}
+          GCP_PHONE_INGRESS_SECRET: ${{ vars.GCP_PHONE_INGRESS_SECRET }}
+          GCP_PHONE_INGRESS_SECRET_VERSION: ${{ vars.GCP_PHONE_INGRESS_SECRET_VERSION }}
+        run: |
+          set -euo pipefail
+          tag="candidate-${GITHUB_SHA:0:12}"
+          gcloud run deploy "$GCP_GATEWAY_SERVICE" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --platform managed \
+            --image "$IMAGE_DIGEST" \
+            --service-account "$GCP_GATEWAY_RUNTIME_SERVICE_ACCOUNT" \
+            --execution-environment gen2 \
+            --cpu 1 \
+            --memory 512Mi \
+            --concurrency 1 \
+            --timeout 3600 \
+            --min-instances 1 \
+            --max-instances 1 \
+            --no-cpu-throttling \
+            --no-allow-unauthenticated \
+            --ingress all \
+            --tag "$tag" \
+            --set-env-vars "CHEMICHECK119_BACKEND_URL=$GCP_BACKEND_URL,CLAWOPS_FROM_NUMBER=$GCP_CLAWOPS_FROM_NUMBER,LOG_LEVEL=info" \
+            --set-secrets "CLAWOPS_API_KEY=$GCP_CLAWOPS_API_KEY_SECRET:$GCP_CLAWOPS_API_KEY_SECRET_VERSION,CLAWOPS_ACCOUNT_ID=$GCP_CLAWOPS_ACCOUNT_ID_SECRET:$GCP_CLAWOPS_ACCOUNT_ID_SECRET_VERSION,OPENAI_API_KEY=$GCP_OPENAI_API_KEY_SECRET:$GCP_OPENAI_API_KEY_SECRET_VERSION,CHEMICHECK119_PHONE_INGRESS_TOKEN=$GCP_PHONE_INGRESS_SECRET:$GCP_PHONE_INGRESS_SECRET_VERSION" \
+            --startup-probe "httpGet.path=/healthz,httpGet.port=8080,timeoutSeconds=3,periodSeconds=5,failureThreshold=24" \
+            --quiet
+          revision="$(gcloud run services describe "$GCP_GATEWAY_SERVICE" \
+            --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
+            --format='value(status.latestReadyRevisionName)')"
+          test -n "$revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## ClawOps Gateway staging deployment"
+            echo
+            echo "- Service: \`${{ vars.GCP_CLAWOPS_GATEWAY_SERVICE }}\`"
+            echo "- Region: \`${{ vars.GCP_REGION }}\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Image: \`${{ steps.image.outputs.image_digest }}\`"
+            echo "- Revision: \`${{ steps.deploy.outputs.revision }}\`"
+            echo "- Instances: \`min=1, max=1, CPU always allocated\`"
+            echo "- Live 070 takeover was explicitly confirmed: \`${{ inputs.confirm_live_number_takeover }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

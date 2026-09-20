@@ -49,4 +49,27 @@ class PhoneSessionControllerTest {
                 """, Integer.class, incidentId);
         assertThat(count).isEqualTo(1);
     }
+
+    @Test
+    void repeatedPreparationReusesTheSameWaitingSessionForThatLoginSession() throws Exception {
+        var cookie = responder(tokenService, "*");
+        String first = mockMvc.perform(post("/api/c2guard/v1/phone-sessions")
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String second = mockMvc.perform(post("/api/c2guard/v1/phone-sessions")
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String firstIncidentId = mapper.readTree(first).path("incidentId").asText();
+        String secondIncidentId = mapper.readTree(second).path("incidentId").asText();
+        assertThat(secondIncidentId).isEqualTo(firstIncidentId);
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM incident_phone_sessions
+                WHERE incident_id = ? AND session_status = 'WAITING_FOR_CALL'
+                """, Integer.class, firstIncidentId);
+        assertThat(count).isEqualTo(1);
+    }
 }
