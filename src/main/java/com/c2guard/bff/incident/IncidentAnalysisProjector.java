@@ -66,7 +66,9 @@ class IncidentAnalysisProjector {
                 requireArrayField(modelOutputs, "substance_candidates")));
         target.set("facilityHistory", projectFacilityHistory(
                 modelOutputs.get("facility_history_candidates")));
-        target.set("evidenceCards", projectEvidence(requireArrayField(source, "evidence")));
+        EvidenceProjection evidence = projectEvidence(requireArrayField(source, "evidence"),
+                AWAITING_STATES.contains(state));
+        target.set("evidenceCards", evidence.cards());
 
         JsonNode groundedRag = source.get("grounded_rag");
         if (groundedRag != null) {
@@ -85,6 +87,10 @@ class IncidentAnalysisProjector {
         target.set("conflictReview", conflictReview);
         target.put("riskDisplayAllowed", conflictReview.path("riskDisplayAllowed").asBoolean(false));
         target.set("requiredNextSteps", toCamelCase(requireArrayField(source, "required_next_steps")));
+        if (evidence.unlinkedWithheld()) {
+            ((ArrayNode) target.get("requiredNextSteps")).add(
+                    "CAS 연결이 확인되지 않은 검색 자료는 물질별 근거에서 제외했습니다. 물질명·용기 라벨·현장 MSDS를 확인하세요.");
+        }
         target.set("provenance", projectProvenance(requireObjectField(source, "provenance")));
         copyRequired(target, "safetyNotice", source, "safety_notice");
         return target;
@@ -163,22 +169,34 @@ class IncidentAnalysisProjector {
         return target;
     }
 
-    private ArrayNode projectEvidence(ArrayNode source) {
+    private EvidenceProjection projectEvidence(ArrayNode source, boolean awaitingConfirmation) {
         ArrayNode target = objectMapper.createArrayNode();
         Set<String> evidenceIds = new LinkedHashSet<>();
-        source.forEach(evidenceNode -> {
+        boolean unlinkedWithheld = false;
+        for (JsonNode evidenceNode : source) {
             JsonNode evidence = requireObject(evidenceNode, "evidence result");
             if (evidence.has("evidence_id")) {
                 projectEvidenceCard(target, evidence, evidenceIds);
-                return;
+                continue;
             }
             JsonNode retrieval = requireObjectField(evidence, "retrieval");
-            requireArrayField(retrieval, "results").forEach(cardNode ->
-                    projectEvidenceCard(target,
-                            requireObject(cardNode, "evidence card"), evidenceIds));
-        });
-        return target;
+            for (JsonNode cardNode : requireArrayField(retrieval, "results")) {
+                JsonNode card = requireObject(cardNode, "evidence card");
+                // Raw retrieval may include explicitly UNLINKED CAMEO records.
+                // They are not CAS evidence and must never be given an invented
+                // CAS or promoted to a substance-confirmation candidate.
+                if (awaitingConfirmation && card.has("cas_number") && card.get("cas_number").isNull()
+                        && "UNLINKED".equals(card.path("cas_link_status").asText())) {
+                    unlinkedWithheld = true;
+                    continue;
+                }
+                projectEvidenceCard(target, card, evidenceIds);
+            }
+        }
+        return new EvidenceProjection(target, unlinkedWithheld);
     }
+
+    private record EvidenceProjection(ArrayNode cards, boolean unlinkedWithheld) { }
 
     private void projectEvidenceCard(ArrayNode target, JsonNode card,
                                      Set<String> evidenceIds) {

@@ -89,6 +89,63 @@ class IncidentAnalysisProjectorTest {
     }
 
     @Test
+    void explicitlyUnlinkedRawRetrievalIsWithheldWithANoticeWhileConfirmationIsPending() throws Exception {
+        ObjectNode model = (ObjectNode) load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        JsonNode linked = linkedEvidence();
+        ArrayNode results = model.putArray("evidence").addObject().putObject("retrieval").putArray("results");
+        results.add(linked);
+        ObjectNode unlinked = linked.deepCopy();
+        unlinked.put("evidence_id", "CAMEO:UNLINKED-TEST");
+        unlinked.putNull("cas_number");
+        unlinked.put("cas_link_status", "UNLINKED");
+        results.add(unlinked);
+
+        JsonNode actual = projector.project(model, "REQ-EXAMPLE-0001", "INC-EXAMPLE-0001");
+        assertEquals(1, actual.path("evidenceCards").size());
+        assertEquals(linked.path("cas_number"), actual.path("evidenceCards").get(0).path("casNumber"));
+        assertFalse(actual.toString().contains("CAMEO:UNLINKED-TEST"));
+        assertFalse(actual.path("riskDisplayAllowed").asBoolean());
+        assertFalse(actual.path("confirmationGate").path("allRequiredConfirmed").asBoolean());
+        org.junit.jupiter.api.Assertions.assertTrue(actual.path("requiredNextSteps").toString().contains("CAS 연결이 확인되지 않은"));
+    }
+
+    @Test
+    void missingCasWithoutAnExplicitUnlinkedStatusStillFailsClosed() throws Exception {
+        ObjectNode model = (ObjectNode) load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        ObjectNode card = linkedEvidence();
+        card.putNull("cas_number");
+        card.put("cas_link_status", "SOURCE_EXACT");
+        model.putArray("evidence").addObject().putObject("retrieval").putArray("results").add(card);
+        assertThrows(BffContractException.class, () -> projector.project(model, "REQ-EXAMPLE-0001", "INC-EXAMPLE-0001"));
+    }
+
+    private ObjectNode linkedEvidence() {
+        ObjectNode card = objectMapper.createObjectNode();
+        card.put("evidence_id", "KOSHA:LINKED-TEST");
+        card.put("cas_number", "7782-50-5");
+        card.put("cas_link_status", "SOURCE_EXACT");
+        card.put("source", "KOSHA");
+        card.put("title", "염소 MSDS");
+        card.put("body_preview", "합성 테스트용 문서 발췌");
+        card.put("source_url", "https://example.com/msds");
+        card.put("document_version", "test-v1");
+        return card;
+    }
+
+    @Test
+    void unlinkedEvidenceDoesNotRelaxCompletedScreeningValidation() throws Exception {
+        ObjectNode model = (ObjectNode) load("src/test/resources/fixtures/model/incident_unconfirmed_response.json");
+        model.put("state", "SCREENING_COMPLETED");
+        ObjectNode card = linkedEvidence();
+        card.putNull("cas_number");
+        card.put("cas_link_status", "UNLINKED");
+        model.putArray("evidence").addObject().putObject("retrieval").putArray("results").add(card);
+        BffContractException error = assertThrows(BffContractException.class,
+                () -> projector.project(model, "REQ-EXAMPLE-0001", "INC-EXAMPLE-0001"));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("cas_number"));
+    }
+
+    @Test
     void omitsInternalAgentWorkflowAndMapContextFromTheResponderResponse() throws Exception {
         ObjectNode model = (ObjectNode) load(
                 "src/test/resources/fixtures/model/incident_unconfirmed_response.json");
