@@ -25,7 +25,10 @@ public class PhoneIngressProperties {
     }
 
     public void setToken(String token) {
-        this.token = token;
+        // Match gateway configuration normalization. Secret text may contain a
+        // trailing CR/LF, which cannot be sent in an HTTP header. Request tokens
+        // are still compared exactly and an empty configured token fails closed.
+        this.token = token == null ? "" : token.trim();
     }
 
     public int getMaxTextLength() {

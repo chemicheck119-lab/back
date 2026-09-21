@@ -15,6 +15,17 @@ traffic procedure as a safety boundary.
    phone-ingress secrets. Grant the gateway runtime service account access only to these.
 4. Confirm the ClawOps subscription, 070 number, and paid-call authority with the user.
 5. Record the previous gateway image digest and revision.
+6. Verify shared-token authentication against the exact candidate backend before
+   transferring the number. With the gateway-normalized token, POST an end event
+   for a freshly generated, nonexistent `AUTH-CHECK-<UUID>` call ID: expect
+   `404 PHONE_CALL_NOT_FOUND`, not `401 PHONE_INGRESS_UNAUTHORIZED`. Repeat with an
+   invalid token and expect 401. This negative lookup must not use a real call ID
+   or create/claim a waiting incident. Do not log secret values or request headers.
+
+Both backend and gateway strip surrounding configuration whitespace from the shared
+token. Incoming request tokens must still match exactly. A blank configured token is
+never authorized. A healthy `/healthz` proves SDK connectivity, not backend authentication
+or end-to-end phone transcription; those checks must be recorded separately.
 
 ## Deploy and smoke
 

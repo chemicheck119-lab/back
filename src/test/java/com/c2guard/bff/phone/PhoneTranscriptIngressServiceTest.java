@@ -74,6 +74,25 @@ class PhoneTranscriptIngressServiceTest {
     }
 
     @Test
+    void configuredNewlineIsNormalizedButIncomingTokenStillMustMatchExactly() {
+        properties.setToken("secret\r\n");
+        assertThat(service.accept("INC-1", request("event-normalized", true), "secret", "REQ-1")
+                .reviewStatus()).isEqualTo("FINAL_PENDING_REVIEW");
+        assertThatThrownBy(() -> service.accept("INC-1", request("event-padded", true),
+                " secret ", "REQ-2"))
+                .isInstanceOf(BffContractException.class);
+    }
+
+    @Test
+    void whitespaceOnlyConfiguredTokenFailsClosed() {
+        properties.setToken(" \r\n ");
+        assertThatThrownBy(() -> service.accept("INC-1", request("event-empty", true),
+                "", "REQ-1"))
+                .isInstanceOf(BffContractException.class)
+                .hasMessageContaining("전화 provider 인증");
+    }
+
+    @Test
     void duplicateProviderEventWithDifferentPayloadFailsClosed() {
         service.accept("INC-1", request("event-conflict", true), "secret", "REQ-1");
         PhoneTranscriptIngressRequest conflicting = new PhoneTranscriptIngressRequest(

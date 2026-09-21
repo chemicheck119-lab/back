@@ -18,7 +18,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "chemicheck119.phone-ingress.enabled=true",
-        "chemicheck119.phone-ingress.token=test-phone-token"
+        // Secret Manager text entries can end with CRLF; the HTTP header cannot.
+        "chemicheck119.phone-ingress.token=test-phone-token\\r\\n"
 })
 @AutoConfigureMockMvc
 @Transactional
