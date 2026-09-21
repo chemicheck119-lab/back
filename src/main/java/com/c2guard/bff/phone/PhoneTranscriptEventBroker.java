@@ -13,7 +13,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class PhoneTranscriptEventBroker {
 
     private static final int MAX_REPLAY_EVENTS = 100;
-    private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(30);
+    // Rotate before the 60-second Cloud Run request timeout; EventSource resumes
+    // with Last-Event-ID and the persisted transcript history.
+    private static final Duration STREAM_TIMEOUT = Duration.ofSeconds(45);
 
     private final PhoneTranscriptStore transcriptStore;
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> subscribers = new ConcurrentHashMap<>();
@@ -26,22 +28,13 @@ public class PhoneTranscriptEventBroker {
         PhoneTranscriptEvent event = toEvent(stored);
         for (SseEmitter emitter : subscribers.getOrDefault(
                 stored.incidentId(), new CopyOnWriteArrayList<>())) {
-            try {
-                emitter.send(SseEmitter.event().id(event.eventId())
-                        .name("phone.transcript")
-                        .reconnectTime(5000L)
-                        .data(event));
-            } catch (IOException error) {
-                emitter.completeWithError(error);
-                subscribers.getOrDefault(stored.incidentId(),
-                        new CopyOnWriteArrayList<>()).remove(emitter);
-            }
+            send(stored.incidentId(), emitter, transcriptEvent(event));
         }
         return event;
     }
 
     public SseEmitter open(String incidentId, String lastEventId) {
-        SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT.toMillis());
+        SseEmitter emitter = createEmitter();
         CopyOnWriteArrayList<SseEmitter> incidentSubscribers = subscribers
                 .computeIfAbsent(incidentId, ignored -> new CopyOnWriteArrayList<>());
         incidentSubscribers.add(emitter);
@@ -52,19 +45,40 @@ public class PhoneTranscriptEventBroker {
             emitter.complete();
         });
         emitter.onError(ignored -> remove.run());
-        transcriptStore.findReplayEvents(incidentId, lastEventId, MAX_REPLAY_EVENTS)
-                .stream().map(this::toEvent).forEach(event -> send(emitter, event));
+        // Flush headers even when no transcript exists yet. An idle SSE request
+        // must not look like an unresponsive API request to the proxy.
+        if (!send(incidentId, emitter, SseEmitter.event().comment("connected").reconnectTime(1000L))) {
+            return emitter;
+        }
+        for (var stored : transcriptStore.findReplayEvents(incidentId, lastEventId, MAX_REPLAY_EVENTS)) {
+            if (!send(incidentId, emitter, transcriptEvent(toEvent(stored)))) break;
+        }
         return emitter;
     }
 
-    private void send(SseEmitter emitter, PhoneTranscriptEvent event) {
+    protected SseEmitter createEmitter() {
+        return new SseEmitter(STREAM_TIMEOUT.toMillis());
+    }
+
+    private SseEmitter.SseEventBuilder transcriptEvent(PhoneTranscriptEvent event) {
+        return SseEmitter.event().id(event.eventId()).name("phone.transcript")
+                .reconnectTime(1000L).data(event);
+    }
+
+    private boolean send(String incidentId, SseEmitter emitter, SseEmitter.SseEventBuilder event) {
         try {
-            emitter.send(SseEmitter.event().id(event.eventId())
-                    .name("phone.transcript")
-                    .reconnectTime(5000L)
-                    .data(event));
-        } catch (IOException error) {
-            emitter.completeWithError(error);
+            emitter.send(event);
+            return true;
+        } catch (IOException | IllegalStateException error) {
+            // A disconnected browser must not fail an already persisted
+            // provider transcript, nor prevent delivery to other subscribers.
+            subscribers.getOrDefault(incidentId, new CopyOnWriteArrayList<>()).remove(emitter);
+            try {
+                emitter.completeWithError(error);
+            } catch (IllegalStateException alreadyCompleted) {
+                // Servlet async processing can finish before this cleanup.
+            }
+            return false;
         }
     }
 

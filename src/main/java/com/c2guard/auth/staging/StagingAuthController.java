@@ -162,7 +162,9 @@ public class StagingAuthController {
         response.setHeader("Content-Security-Policy",
                 "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
                         + "frame-ancestors 'none'; base-uri 'none'");
-        response.setHeader("Referrer-Policy", "no-referrer");
+        // The same-origin pilot form needs an Origin header for its CSRF guard.
+        // no-referrer makes HTML form POSTs send Origin:null in Chromium.
+        response.setHeader("Referrer-Policy", "same-origin");
         response.setHeader("X-Content-Type-Options", "nosniff");
         String safeStation = HtmlUtils.htmlEscape(properties.getStationDisplayName());
         String errorHtml = error == null ? "" : "<p class=\"error\">"
