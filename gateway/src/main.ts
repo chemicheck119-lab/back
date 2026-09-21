@@ -3,6 +3,7 @@ import pino from "pino";
 import { BackendClient } from "./backend-client.js";
 import { bindClawOpsBridge } from "./bridge.js";
 import { loadConfig } from "./config.js";
+import { createSdkLogger } from "./sdk-logger.js";
 
 const config = loadConfig();
 const logger = pino({
@@ -37,7 +38,7 @@ const agent = new ClawOpsAgent({
   session,
   recording: false,
   builtinTools: [BuiltinTool.HANG_UP],
-  logger,
+  logger: createSdkLogger(process.env.LOG_LEVEL || "info"),
 });
 
 bindClawOpsBridge(agent, new BackendClient(config), logger);

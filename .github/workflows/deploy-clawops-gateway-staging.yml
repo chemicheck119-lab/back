@@ -73,6 +73,8 @@ jobs:
             }
           done
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          # Cloud Run limits the combined service name + traffic tag to 46 chars.
+          test "$((${#GCP_GATEWAY_SERVICE} + 9))" -le 46
           [[ "$GCP_BACKEND_URL" =~ ^https://[a-z0-9.-]+\.run\.app/?$ ]]
           [[ "$GCP_CLAWOPS_FROM_NUMBER" =~ ^070[0-9]{7,8}$ ]]
           for version in \
@@ -149,7 +151,7 @@ jobs:
           GCP_PHONE_INGRESS_SECRET_VERSION: ${{ vars.GCP_PHONE_INGRESS_SECRET_VERSION }}
         run: |
           set -euo pipefail
-          tag="candidate-${GITHUB_SHA:0:12}"
+          tag="c-${GITHUB_SHA:0:7}"
           gcloud run deploy "$GCP_GATEWAY_SERVICE" \
             --project "$GCP_PROJECT_ID" \
             --region "$GCP_REGION" \
