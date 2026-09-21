@@ -72,4 +72,21 @@ class PhoneSessionControllerTest {
                 """, Integer.class, firstIncidentId);
         assertThat(count).isEqualTo(1);
     }
+
+    @Test
+    void expiredWaitingSessionIsNotReturnedAsReadyAgain() throws Exception {
+        var cookie = responder(tokenService, "*");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String first = mockMvc.perform(post("/api/c2guard/v1/phone-sessions").cookie(cookie))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String firstId = mapper.readTree(first).path("incidentId").asText();
+        jdbcTemplate.update("UPDATE incident_phone_sessions SET created_at = ? WHERE incident_id = ?",
+                java.time.OffsetDateTime.parse("2000-01-01T00:00:00Z"), firstId);
+        String second = mockMvc.perform(post("/api/c2guard/v1/phone-sessions").cookie(cookie))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(mapper.readTree(second).path("incidentId").asText()).isNotEqualTo(firstId);
+        // Keep the old row for audit; do not extend its claim window.
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM incident_phone_sessions WHERE incident_id = ?",
+                Integer.class, firstId)).isEqualTo(1);
+    }
 }

@@ -19,15 +19,17 @@ public class PhoneSessionService {
     private final TransactionTemplate transactionTemplate;
     private final IncidentAccessPolicy incidentAccessPolicy;
     private final Clock clock;
+    private final PhoneIngressProperties properties;
 
     public PhoneSessionService(JdbcTemplate jdbcTemplate,
                                TransactionTemplate transactionTemplate,
                                IncidentAccessPolicy incidentAccessPolicy,
-                               Clock clock) {
+                               Clock clock, PhoneIngressProperties properties) {
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = transactionTemplate;
         this.incidentAccessPolicy = incidentAccessPolicy;
         this.clock = clock;
+        this.properties = properties;
     }
 
     public PhoneSessionResponse create(BffUserPrincipal principal, String requestId) {
@@ -41,13 +43,15 @@ public class PhoneSessionService {
                 SELECT incident_id, created_at
                 FROM incident_phone_sessions
                 WHERE user_id = ? AND session_id = ? AND session_status = 'WAITING_FOR_CALL'
+                  AND created_at >= ?
                 ORDER BY created_at DESC
                 LIMIT 1
                 FOR UPDATE
                 """, (resultSet, rowNumber) -> new ExistingSession(
                         resultSet.getString("incident_id"),
                         resultSet.getObject("created_at", OffsetDateTime.class)),
-                principal.userId(), principal.sessionId());
+                principal.userId(), principal.sessionId(), OffsetDateTime.ofInstant(
+                        clock.instant().minus(properties.getClaimMaxAge()), ZoneOffset.UTC));
         if (!existing.isEmpty()) {
             ExistingSession session = existing.get(0);
             return new PhoneSessionResponse(requestId, session.incidentId(),

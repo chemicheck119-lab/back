@@ -49,6 +49,8 @@ class StagingPublicPilotIntegrationTest {
     void showsAPlainLanguagePilotPageWithoutCredentialFields() throws Exception {
         mockMvc.perform(get("/auth/staging/login"))
                 .andExpect(status().isOk())
+                .andExpect(header().string("Referrer-Policy", "same-origin"))
+                .andExpect(header().string("Content-Security-Policy", containsString("form-action 'self'")))
                 .andExpect(content().string(containsString("파일럿을 바로 시작하세요")))
                 .andExpect(content().string(containsString("name=\"stationId\"")))
                 .andExpect(content().string(containsString("서울 강남소방서")))
@@ -118,5 +120,14 @@ class StagingPublicPilotIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(header().stringValues(HttpHeaders.SET_COOKIE,
                         not(hasItem(containsString("CHEMICHECK119_SESSION=")))));
+    }
+
+    @Test
+    void rejectsNullOriginWithoutWeakeningThePilotGuard() throws Exception {
+        mockMvc.perform(post(PILOT_PATH)
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("stationId", "nfa-0985")
+                        .header(HttpHeaders.ORIGIN, "null"))
+                .andExpect(status().isForbidden());
     }
 }
