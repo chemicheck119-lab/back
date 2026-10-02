@@ -47,6 +47,8 @@ class BffContractSnapshotTest {
                 Map.entry("/api/c2guard/v1/logout", "post"),
                 Map.entry("/api/c2guard/v1/transcriptions", "post"),
                 Map.entry("/api/c2guard/v1/phone-sessions", "post"),
+                Map.entry("/api/c2guard/v1/phone-sessions/{incidentId}", "get"),
+                Map.entry("/api/c2guard/v1/phone-sessions/{incidentId}/heartbeat", "post"),
                 Map.entry("/api/c2guard/v1/incidents/analyze", "post"),
                 Map.entry("/api/c2guard/v1/incidents/brief", "post"),
                 Map.entry("/api/c2guard/v1/substances/discover", "post"),

@@ -47,6 +47,7 @@ public class PhoneProviderCallService {
 
     private PhoneProviderCallResponse startInTransaction(PhoneProviderCallStartRequest request,
                                                          String requestId) {
+        jdbcTemplate.queryForObject("SELECT id FROM phone_dispatch_lock WHERE id = 1 FOR UPDATE", Integer.class);
         List<PhoneCallRow> existing = queryByCallIdForUpdate(request.provider(), request.callId());
         if (!existing.isEmpty()) {
             PhoneCallRow row = existing.get(0);
@@ -63,11 +64,12 @@ public class PhoneProviderCallService {
                 SELECT incident_id, provider_call_id, provider, start_event_id,
                        end_event_id, session_status, started_at, ended_at, call_end_status
                 FROM incident_phone_sessions
-                WHERE session_status = 'WAITING_FOR_CALL' AND created_at >= ?
+                WHERE session_status = 'WAITING_FOR_CALL'
+                  AND (waiting_expires_at > ? OR (waiting_expires_at IS NULL AND created_at >= ?))
                 ORDER BY created_at ASC
                 LIMIT 2
                 FOR UPDATE
-                """, this::map, cutoff);
+                """, this::map, OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC), cutoff);
         if (waiting.isEmpty()) {
             throw new BffContractException(409, "PHONE_SESSION_NOT_WAITING",
                     "연결할 대기 중 전화 세션이 없습니다.", true);

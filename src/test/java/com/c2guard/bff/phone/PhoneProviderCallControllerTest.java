@@ -167,4 +167,28 @@ class PhoneProviderCallControllerTest {
                 ) VALUES (?, ?, 'STATION-1', '테스트 소방서', ?, 'WAITING_FOR_CALL', ?)
                 """, incidentId, userId, "SESSION-" + incidentId, now);
     }
+
+    @Test
+    void refreshedLeaseCanBeClaimedAfterOriginalFifteenMinuteWindow() throws Exception {
+        insertWaitingSession("INC-PHONE-LEASE", "USER-1");
+        jdbcTemplate.update("UPDATE incident_phone_sessions SET created_at = ?, waiting_expires_at = ? WHERE incident_id = ?",
+                OffsetDateTime.now().minusHours(1), OffsetDateTime.now().plusSeconds(90), "INC-PHONE-LEASE");
+        startLeaseCall().andExpect(status().isOk()).andExpect(jsonPath("$.incidentId").value("INC-PHONE-LEASE"));
+    }
+
+    @Test
+    void expiredLeaseIsRejectedEvenIfIncidentWasRecentlyCreated() throws Exception {
+        insertWaitingSession("INC-PHONE-LEASE", "USER-1");
+        jdbcTemplate.update("UPDATE incident_phone_sessions SET waiting_expires_at = ? WHERE incident_id = ?",
+                OffsetDateTime.now().minusSeconds(1), "INC-PHONE-LEASE");
+        startLeaseCall().andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("PHONE_SESSION_NOT_WAITING"));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions startLeaseCall() throws Exception {
+        return mockMvc.perform(post("/api/c2guard/v1/phone-provider/calls/start")
+                .contentType(MediaType.APPLICATION_JSON).header("X-Phone-Ingress-Token", "test-phone-token")
+                .content("""
+                        {"provider":"clawops","callId":"CALL-LEASE","eventId":"START-LEASE","occurredAt":"%s"}
+                        """.formatted(OffsetDateTime.now(ZoneOffset.UTC))));
+    }
 }

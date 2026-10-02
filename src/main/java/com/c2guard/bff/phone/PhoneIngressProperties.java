@@ -11,6 +11,7 @@ public class PhoneIngressProperties {
     private String token = "";
     private int maxTextLength = 4000;
     private Duration claimMaxAge = Duration.ofMinutes(15);
+    private Duration waitingLease = Duration.ofSeconds(90);
 
     public boolean isEnabled() {
         return enabled;
@@ -45,5 +46,15 @@ public class PhoneIngressProperties {
 
     public void setClaimMaxAge(Duration claimMaxAge) {
         this.claimMaxAge = claimMaxAge;
+    }
+
+    public Duration getWaitingLease() { return waitingLease; }
+
+    public void setWaitingLease(Duration waitingLease) {
+        if (waitingLease == null || waitingLease.compareTo(Duration.ofSeconds(30)) < 0
+                || waitingLease.compareTo(Duration.ofMinutes(5)) > 0) {
+            throw new IllegalArgumentException("phone waiting lease must be between 30 seconds and 5 minutes");
+        }
+        this.waitingLease = waitingLease;
     }
 }
