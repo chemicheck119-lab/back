@@ -8,6 +8,7 @@ public record PhoneSessionResponse(
         String stationId,
         String stationDisplayName,
         String status,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        OffsetDateTime waitingExpiresAt
 ) {
 }
