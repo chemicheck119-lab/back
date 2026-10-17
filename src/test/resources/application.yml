@@ -1,3 +1,6 @@
 chemicheck119:
+  # Capacity tests enable their own isolated policy; unrelated contract suites do not share quotas.
+  cost-admission:
+    enabled: false
   bff-security:
     session-secret: test-only-session-secret-at-least-32-bytes-long

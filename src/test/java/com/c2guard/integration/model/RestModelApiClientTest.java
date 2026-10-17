@@ -158,19 +158,26 @@ class RestModelApiClientTest {
     }
 
     @Test
-    void retryable503RetriesOnlyOnceAndKeepsRequestId() throws Exception {
+    void retryableRead503RetriesOnlyOnceAndKeepsRequestId() throws Exception {
         server.enqueue(errorJson(503, "MODEL_NOT_READY", true));
         server.enqueue(okJson("{}"));
 
-        ModelApiResponse response = client.resolveSubstances(query(), REQUEST_ID);
+        ModelApiResponse response = client.ready(REQUEST_ID);
 
         assertEquals(REQUEST_ID, response.requestId());
         assertEquals(2, server.getRequestCount());
         assertEquals(REQUEST_ID, server.takeRequest().getHeader(RestModelApiClient.REQUEST_ID_HEADER));
         assertEquals(REQUEST_ID, server.takeRequest().getHeader(RestModelApiClient.REQUEST_ID_HEADER));
         assertEquals(1.0, meterRegistry.get("chemicheck119.model.api.duration")
-                .tags("operation", "substances.resolve", "outcome", "SUCCESS", "attempts", "2")
+                .tags("operation", "health.ready", "outcome", "SUCCESS", "attempts", "2")
                 .timer().count());
+    }
+
+    @Test
+    void paidPost503NeverReplaysEvenWhenProviderSuggestsRetry() {
+        server.enqueue(errorJson(503, "MODEL_NOT_READY", true));
+        assertThrows(ModelApiException.class, () -> client.resolveSubstances(query(), REQUEST_ID));
+        assertEquals(1, server.getRequestCount());
     }
 
     @Test
@@ -229,7 +236,7 @@ class RestModelApiClientTest {
     }
 
     @Test
-    void connectionFailureIsRetriedOnce() throws IOException {
+    void postConnectionFailureIsNotAutomaticallyRetried() throws IOException {
         AtomicInteger retryWaits = new AtomicInteger();
         ModelApiProperties unreachable = properties(URI.create("http://127.0.0.1:1"));
         unreachable.setConnectTimeout(Duration.ofMillis(100));
@@ -241,7 +248,7 @@ class RestModelApiClientTest {
         assertEquals(ModelApiErrorKind.NETWORK, error.getKind());
         assertEquals("MODEL_CONNECTION_FAILED", error.getCode());
         assertTrue(error.isRetryable());
-        assertEquals(1, retryWaits.get());
+        assertEquals(0, retryWaits.get());
     }
 
     @Test

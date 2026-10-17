@@ -1,0 +1,27 @@
+{
+  "verified_at": "2026-10-17T15:49:32.483157+00:00",
+  "scope": "LOCAL_SYNTHETIC_MOCK_PROVIDER_NOT_LIVE_LOAD",
+  "backend_tests": 294,
+  "failures_and_errors": 0,
+  "burst": {
+    "rejected_429": 14,
+    "accepted": 2,
+    "baseline_upstream_calls_during_burst": 16,
+    "recovery_status": 200,
+    "submitted_per_variant": 16,
+    "real_model_or_phone_calls": 0,
+    "upstream_calls_during_burst": 2,
+    "scope": "LOCAL_MOCKMVC_FAKE_PROVIDER",
+    "peak_upstream_concurrency": 2
+  },
+  "security_suites": {
+    "RestModelApiClientTest": 17,
+    "BffSecurityIntegrationTest": 13,
+    "CostAdmissionIntegrationTest": 2,
+    "BffCorsIntegrationTest": 2,
+    "PhoneTranscriptReviewIntegrationTest": 2,
+    "CostAdmissionGuardTest": 2
+  },
+  "production_deployed": false,
+  "actual_savings_measured": false
+}

@@ -150,7 +150,8 @@ final class RestModelApiClient implements ModelApiClient {
                         requestId, List.of(), null);
             }
 
-            int maxAttempts = 1 + properties.getMaxRetries();
+            // A provider may have charged/completed a POST before its response was lost.
+            int maxAttempts = HttpMethod.GET.equals(method) ? 1 + properties.getMaxRetries() : 1;
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 attempts = attempt;
                 try {
