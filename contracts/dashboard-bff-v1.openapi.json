@@ -6703,6 +6703,17 @@
               }
             }
           },
+          "204": {
+            "description": "Connection capacity reached. No body. Native EventSource stops automatic reconnection; preserve input and let the user reconnect manually.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Suggested manual retry delay in seconds; EventSource does not apply this header."
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {

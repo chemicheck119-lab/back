@@ -97,6 +97,9 @@ chemicheck119:
     timeout: ${CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT:10s}
     synthetic-incident-ttl: ${CHEMICHECK119_SYNTHETIC_INCIDENT_TTL:30m}
     max-active-synthetic-incidents: ${CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS:100}
+  phone-stream:
+    max-connections: ${CHEMICHECK119_SSE_MAX_CONNECTIONS:32}
+    max-per-incident: ${CHEMICHECK119_SSE_MAX_PER_INCIDENT:4}
   phone-ingress:
     enabled: ${CHEMICHECK119_PHONE_INGRESS_ENABLED:false}
     token: ${CHEMICHECK119_PHONE_INGRESS_TOKEN:}
