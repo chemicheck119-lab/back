@@ -30,6 +30,12 @@ spring:
       force: true
 
 chemicheck119:
+  cost-admission:
+    enabled: ${CHEMICHECK119_COST_ADMISSION_ENABLED:true}
+    max-in-flight: ${CHEMICHECK119_COST_MAX_IN_FLIGHT:2}
+    per-principal-per-minute: ${CHEMICHECK119_COST_PER_PRINCIPAL_PER_MINUTE:30}
+    global-per-minute: ${CHEMICHECK119_COST_GLOBAL_PER_MINUTE:120}
+    max-principals: ${CHEMICHECK119_COST_MAX_PRINCIPALS:1024}
   bff-security:
     session-secret: ${CHEMICHECK119_SESSION_SECRET:}
     issuer: ${CHEMICHECK119_SESSION_ISSUER:chemicheck119-session-gateway}
@@ -91,6 +97,9 @@ chemicheck119:
     timeout: ${CHEMICHECK119_INCIDENT_REPLAY_TIMEOUT:10s}
     synthetic-incident-ttl: ${CHEMICHECK119_SYNTHETIC_INCIDENT_TTL:30m}
     max-active-synthetic-incidents: ${CHEMICHECK119_MAX_ACTIVE_SYNTHETIC_INCIDENTS:100}
+  phone-stream:
+    max-connections: ${CHEMICHECK119_SSE_MAX_CONNECTIONS:32}
+    max-per-incident: ${CHEMICHECK119_SSE_MAX_PER_INCIDENT:4}
   phone-ingress:
     enabled: ${CHEMICHECK119_PHONE_INGRESS_ENABLED:false}
     token: ${CHEMICHECK119_PHONE_INGRESS_TOKEN:}

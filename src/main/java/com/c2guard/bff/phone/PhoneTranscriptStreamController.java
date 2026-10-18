@@ -35,8 +35,10 @@ public class PhoneTranscriptStreamController {
             HttpServletRequest request,
             HttpServletResponse response) {
         incidentAccessPolicy.requireAccess(principal, incidentId);
+        SseEmitter emitter = broker.open(incidentId, lastEventId);
+        response.setHeader("Cache-Control", "no-store");
         response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8");
-        return broker.open(incidentId, lastEventId);
+        return emitter;
     }
 }

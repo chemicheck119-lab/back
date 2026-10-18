@@ -20,7 +20,7 @@
   "artifacts": [
     {
       "path": "contracts/dashboard-bff-v1.openapi.json",
-      "sha256": "1537b1e58817a93c21c8b2d446b9495d496e463487ece0944050bc768b168913",
+      "sha256": "6d302f824728e42f3f154c059ec5f7ded7a5ac96b579962912fb4ab60302fd65",
       "upstreamPath": "contracts/dashboard-bff-v1.openapi.json",
       "upstreamSha256": "acbfc39f6704e32b4fb2614a3f7bd5334dc33c507a9180120e3e698f04e1fa3c",
       "localDecisions": [
@@ -36,7 +36,9 @@
         "Authenticated confirmation cancellation requires the exact active role and confirmation ID, preserves a separate audit event, and forces reanalysis",
         "Speech runtime output exposes validated nullable model provenance and never treats artifact identity as accuracy or safety validation",
         "Phone transcripts use a server-enforced INTERIM to FINAL_PENDING_REVIEW to REVIEWED to ANALYZED state machine with revision-bound analysis",
-        "Responder-facing analysis omits internal agent workflow and map context while preserving server-side orchestration and audit"
+        "Responder-facing analysis omits internal agent workflow and map context while preserving server-side orchestration and audit",
+        "Process-local bounded admission on model-backed POSTs returns CAPACITY_LIMITED 429 before upstream calls; manual retry only",
+        "Phone SSE capacity uses HTTP 204 to stop native EventSource reconnection; process-local bounded connections and manual retry"
       ]
     },
     {

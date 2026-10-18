@@ -33,6 +33,12 @@ public class BffExceptionHandler {
                 "요청 형식 또는 입력값을 확인해주세요.", false);
     }
 
+    @ExceptionHandler(com.c2guard.bff.phone.PhoneStreamCapacityException.class)
+    ResponseEntity<Void> streamCapacity() {
+        return ResponseEntity.noContent().header("Cache-Control", "no-store")
+                .header("Retry-After", "60").build();
+    }
+
     @ExceptionHandler(BffContractException.class)
     ResponseEntity<DashboardErrorResponse> contractFailure(BffContractException error,
                                                             HttpServletRequest request) {

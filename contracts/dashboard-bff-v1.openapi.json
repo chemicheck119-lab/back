@@ -5062,6 +5062,25 @@
           "required": true
         },
         "responses": {
+          "429": {
+            "description": "CAPACITY_LIMITED (process-local admission; retryable=false).",
+            "headers": {
+              "Retry-After": {
+                "description": "Wait before a manual retry; no automatic request replay",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
           "200": {
             "content": {
               "application/json": {
@@ -5680,6 +5699,25 @@
           "required": true
         },
         "responses": {
+          "429": {
+            "description": "CAPACITY_LIMITED (process-local admission; retryable=false).",
+            "headers": {
+              "Retry-After": {
+                "description": "Wait before a manual retry; no automatic request replay",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
           "200": {
             "content": {
               "application/json": {
@@ -5894,7 +5932,16 @@
             }
           },
           "429": {
-            "description": "SPEECH_BUSY, retryable=true",
+            "description": "CAPACITY_LIMITED (process-local admission; retryable=false). SPEECH_BUSY, retryable=true",
+            "headers": {
+              "Retry-After": {
+                "description": "Wait before a manual retry; no automatic request replay",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -6038,7 +6085,16 @@
             }
           },
           "429": {
-            "description": "SPEECH_BUSY, retryable=true",
+            "description": "CAPACITY_LIMITED (process-local admission; retryable=false). SPEECH_BUSY, retryable=true",
+            "headers": {
+              "Retry-After": {
+                "description": "Wait before a manual retry; no automatic request replay",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -6104,6 +6160,25 @@
           }
         },
         "responses": {
+          "429": {
+            "description": "CAPACITY_LIMITED (process-local admission; retryable=false).",
+            "headers": {
+              "Retry-After": {
+                "description": "Wait before a manual retry; no automatic request replay",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardErrorResponse"
+                }
+              }
+            }
+          },
           "200": {
             "description": "Successful Response (action-brief-v1)",
             "content": {
@@ -6625,6 +6700,17 @@
                 "schema": {
                   "$ref": "#/components/schemas/DashboardPhoneTranscriptEvent"
                 }
+              }
+            }
+          },
+          "204": {
+            "description": "Connection capacity reached. No body. Native EventSource stops automatic reconnection; preserve input and let the user reconnect manually.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Suggested manual retry delay in seconds; EventSource does not apply this header."
               }
             }
           },
